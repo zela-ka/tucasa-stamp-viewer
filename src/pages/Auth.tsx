@@ -153,9 +153,9 @@ export default function Auth() {
 
   const formCardBase =
     'relative w-full max-h-[95vh] overflow-y-auto rounded-[30px] p-5 ' +
-    'bg-gradient-to-br from-white/25 via-white/12 to-white/5 ' +
+    'bg-gradient-to-br from-[#1f4a9c] via-[#1b418c] to-[#15326e] ' +
     'border border-white/30 shadow-[0_32px_90px_-30px_rgba(2,8,23,0.75)] ' +
-    'backdrop-blur-[32px] saturate-[180%] animate-slide-down';
+    'animate-slide-down';
 
   return (
     <>
