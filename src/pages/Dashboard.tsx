@@ -86,10 +86,7 @@ export default function Dashboard() {
         const { data: m } = await (supabase.from('members') as any)
           .select('id, full_name, email, phone, institution, is_active, branch_id')
           .eq('user_id', user.id).maybeSingle();
-        if (!m || cancelled) {
-          if (!cancelled) setDashboardReady(true);
-          return;
-        }
+        if (!m || cancelled) return;
 
         setMyMembership({
           id: (m as any).id,
