@@ -11,18 +11,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Trash2, Building2, MapPin, GitBranch, Globe, Network, ArrowLeft } from 'lucide-react';
+import { Plus, Pencil, Building2, MapPin, GitBranch, Globe, Network, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { SEO } from '@/components/SEO';
 import { GlassOverlay, GlassPanel, GlassScrollContainer, GlassCard, GlassButton, GlassItemButton } from '@/components/glass';
+import { ConfirmDeleteOverlay } from '@/components/ConfirmDeleteOverlay';
 import { computeScope } from '@/lib/scope';
 import { toTitleCase, byNameAsc } from '@/lib/utils';
 
-function HierarchyCard({ item, fields, canDelete, onDelete }: {
+function HierarchyCard({ item, fields, canEdit, onEdit }: {
   item: any;
   fields: { label: string; value: string }[];
-  canDelete: boolean;
-  onDelete: () => void;
+  canEdit: boolean;
+  onEdit: () => void;
 }) {
   return (
     <GlassCard variant="interactive" className="mb-3 !p-4">
@@ -37,9 +38,9 @@ function HierarchyCard({ item, fields, canDelete, onDelete }: {
             ))}
           </div>
         </div>
-        {canDelete && (
-          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-white hover:bg-white/10" onClick={onDelete}>
-            <Trash2 className="h-3.5 w-3.5 text-red-400" />
+        {canEdit && (
+          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-white hover:bg-white/10" onClick={onEdit}>
+            <Pencil className="h-3.5 w-3.5 text-white/80" />
           </Button>
         )}
       </div>
