@@ -198,16 +198,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     // Fallback: guarantees `loading` resolves even if no INITIAL_SESSION arrives.
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
+    // Also PURGES a corrupted persisted session before it can trigger the
+    // token-refresh storm (repeated TOKEN_REFRESHED -> 429 -> SIGNED_OUT) that
+    // otherwise nukes a fresh login moments after it succeeds.
+    supabase.auth.getSession().then(async ({ data: { session }, error }) => {
       if (!active) return;
       if (error) {
-        console.error('[Auth] getSession error:', error.message);
+        console.error('[Auth] getSession error — purging stale session:', error.message);
+        await supabase.auth.signOut();
+        if (!active) return;
         setLoading(false);
         setProfileLoaded(true);
         return;
       }
       if (!session) {
         console.log('[Auth] no persisted session on load');
+        setLoading(false);
+        setProfileLoaded(true);
+        return;
+      }
+      // A persisted session exists — validate it against the auth server. A
+      // corrupted/expired refresh token fails here; purge it so autoRefresh
+      // never gets stuck looping on it.
+      const { error: userError } = await supabase.auth.getUser();
+      if (!active) return;
+      if (userError) {
+        console.error('[Auth] persisted session invalid — purging:', userError.message);
+        await supabase.auth.signOut();
+        if (!active) return;
         setLoading(false);
         setProfileLoaded(true);
       }
