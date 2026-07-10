@@ -504,6 +504,70 @@ export default function Hierarchy() {
           </div>
         </>
       )}
+
+      {/* Edit overlay */}
+      {editItem && (
+        <>
+          <GlassOverlay onClick={() => setEditItem(null)} />
+          <div className="fixed inset-x-0 top-4 z-50 flex justify-center px-3 sm:px-4 animate-slide-down">
+            <div className="w-full max-w-lg min-w-0">
+              <GlassPanel
+                title={`Edit ${editItem.type.charAt(0).toUpperCase() + editItem.type.slice(1)}`}
+                subtitle="Edit"
+                showClose
+                onClose={() => setEditItem(null)}
+              >
+                <form onSubmit={handleSaveEdit} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-white/90">Name *</Label>
+                    <Input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} required className="bg-white/10 border-white/20 text-white placeholder:text-white/60" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-white/90">Description</Label>
+                    <Input value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} className="bg-white/10 border-white/20 text-white placeholder:text-white/60" />
+                  </div>
+                  {editItem.type === 'branch' && (
+                    <div className="space-y-2">
+                      <Label className="text-white/90">Institution</Label>
+                      <Input value={editForm.institution} onChange={e => setEditForm(f => ({ ...f, institution: e.target.value }))} className="bg-white/10 border-white/20 text-white placeholder:text-white/60" />
+                    </div>
+                  )}
+                  <div className="flex gap-2 pt-1">
+                    <GlassButton type="submit" className="flex-1">Save</GlassButton>
+                    <GlassButton
+                      type="button"
+                      onClick={() => { const t = editItem; setEditItem(null); setReassignId(''); setDeleteTarget(t); }}
+                      className="flex-1 !bg-red-500/30 !border-red-400/40 hover:!bg-red-500/40"
+                    >
+                      Delete
+                    </GlassButton>
+                  </div>
+                </form>
+              </GlassPanel>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* Delete confirmation overlay */}
+      {deleteTarget && (
+        <ConfirmDeleteOverlay
+          open={!!deleteTarget}
+          onClose={() => { setDeleteTarget(null); setReassignId(''); }}
+          title={`Delete ${deleteTarget.row.name}`}
+          itemName={deleteTarget.row.name}
+          warning={`This will permanently delete this ${deleteTarget.type} and move its ${deleteMeta[deleteTarget.type].childLabel} to the destination you choose below. This action cannot be undone.`}
+          reassign={{
+            label: deleteMeta[deleteTarget.type].reassignLabel,
+            placeholder: deleteMeta[deleteTarget.type].placeholder,
+            emptyMessage: deleteMeta[deleteTarget.type].empty,
+            options: reassignOptions(deleteTarget),
+            value: reassignId,
+            onChange: setReassignId,
+          }}
+          onConfirm={handleConfirmDelete}
+        />
+      )}
     </DashboardLayout>
   );
 }
