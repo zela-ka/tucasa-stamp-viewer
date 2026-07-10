@@ -15,7 +15,6 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useToast } from '@/hooks/use-toast';
 import { SEO } from '@/components/SEO';
 import { GlassCard, GlassPanel, GlassButton, GlassOverlay, GlassScrollContainer, GlassItemButton } from '@/components/glass';
-import { ConfirmDeleteOverlay } from '@/components/ConfirmDeleteOverlay';
 import { toTitleCase, toUpperName, byNameAsc } from '@/lib/utils';
 
 interface LeaderRow {
@@ -107,7 +106,6 @@ export default function Leadership() {
 
   const [form, setForm] = useState({ user_id: '', role_id: '', hierarchy_level: '' as string, level_id: '' });
   const [openLevel, setOpenLevel] = useState<string | null>(null);
-  const [deleteLeader, setDeleteLeader] = useState<LeaderRow | null>(null);
   
 
   // Scope derived from user roles + membership
@@ -337,12 +335,10 @@ export default function Leadership() {
   };
 
 
-  const handleConfirmRemove = async () => {
-    if (!deleteLeader) return;
-    const { error } = await supabase.from('user_roles').delete().eq('id', deleteLeader.id);
+  const handleRemove = async (id: string) => {
+    const { error } = await supabase.from('user_roles').delete().eq('id', id);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Leader removed' });
-    setDeleteLeader(null);
     fetchData();
   };
 
@@ -513,7 +509,7 @@ export default function Leadership() {
                                 </div>
                                 {canManage && (
                                   <div className="flex flex-col gap-1 shrink-0">
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-white/10" onClick={() => setDeleteLeader(l)}>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-white/10" onClick={() => handleRemove(l.id)}>
                                       <Trash2 className="h-3.5 w-3.5 text-red-400" />
                                     </Button>
                                   </div>
@@ -565,16 +561,6 @@ export default function Leadership() {
             </div>
           </div>
         </>
-      )}
-      {deleteLeader && (
-        <ConfirmDeleteOverlay
-          open={!!deleteLeader}
-          onClose={() => setDeleteLeader(null)}
-          title={`Remove ${toUpperName(deleteLeader.user_name)}`}
-          itemName={deleteLeader.user_name}
-          warning={`This will permanently remove ${toUpperName(deleteLeader.user_name)} as ${deleteLeader.role_name} at ${toTitleCase(deleteLeader.level_name)}. This action cannot be undone.`}
-          onConfirm={handleConfirmRemove}
-        />
       )}
     </DashboardLayout>
   );

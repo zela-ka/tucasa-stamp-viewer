@@ -20,8 +20,13 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+function needsOnboarding(profile: any) {
+  if (!profile) return true;
+  return !profile.course || !profile.year_of_study;
+}
+
 function ProtectedRoute({ children, allowIncomplete = false }: { children: React.ReactNode; allowIncomplete?: boolean }) {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const [dashboardReady, setDashboardReady] = useState(false);
   const showSplash = useStartupSplash(loading, dashboardReady, Boolean(user));
 
@@ -40,14 +45,18 @@ function ProtectedRoute({ children, allowIncomplete = false }: { children: React
   }, [user]);
   if (showSplash) return <StartupScreen />;
   if (!user) return <Navigate to="/auth" replace />;
+  if (!allowIncomplete && needsOnboarding(profile)) return <Navigate to="/welcome" replace />;
   return <>{children}</>;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const showSplash = useStartupSplash(loading, true, Boolean(user));
   if (showSplash) return <StartupScreen />;
-  if (user) return <Navigate to="/dashboard" replace />;
+  if (user) {
+    if (needsOnboarding(profile)) return <Navigate to="/welcome" replace />;
+    return <Navigate to="/dashboard" replace />;
+  }
   return <>{children}</>;
 }
 

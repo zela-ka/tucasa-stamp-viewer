@@ -11,19 +11,18 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Pencil, Building2, MapPin, GitBranch, Globe, Network, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, Building2, MapPin, GitBranch, Globe, Network, ArrowLeft } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { SEO } from '@/components/SEO';
 import { GlassOverlay, GlassPanel, GlassScrollContainer, GlassCard, GlassButton, GlassItemButton } from '@/components/glass';
-import { ConfirmDeleteOverlay } from '@/components/ConfirmDeleteOverlay';
 import { computeScope } from '@/lib/scope';
 import { toTitleCase, byNameAsc } from '@/lib/utils';
 
-function HierarchyCard({ item, fields, canEdit, onEdit }: {
+function HierarchyCard({ item, fields, canDelete, onDelete }: {
   item: any;
   fields: { label: string; value: string }[];
-  canEdit: boolean;
-  onEdit: () => void;
+  canDelete: boolean;
+  onDelete: () => void;
 }) {
   return (
     <GlassCard variant="interactive" className="mb-3 !p-4">
@@ -38,9 +37,9 @@ function HierarchyCard({ item, fields, canEdit, onEdit }: {
             ))}
           </div>
         </div>
-        {canEdit && (
-          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-white hover:bg-white/10" onClick={onEdit}>
-            <Pencil className="h-3.5 w-3.5 text-white/80" />
+        {canDelete && (
+          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-white hover:bg-white/10" onClick={onDelete}>
+            <Trash2 className="h-3.5 w-3.5 text-red-400" />
           </Button>
         )}
       </div>
@@ -63,12 +62,6 @@ export default function Hierarchy() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dialogType, setDialogType] = useState<'union' | 'conference' | 'zone' | 'branch'>('union');
   const [form, setForm] = useState({ name: '', description: '', institution: '', parent_id: '' });
-
-  type EntityType = 'union' | 'conference' | 'zone' | 'branch';
-  const [editItem, setEditItem] = useState<null | { type: EntityType; row: any }>(null);
-  const [editForm, setEditForm] = useState({ name: '', description: '', institution: '' });
-  const [deleteTarget, setDeleteTarget] = useState<null | { type: EntityType; row: any }>(null);
-  const [reassignId, setReassignId] = useState('');
 
   const fetchAll = async () => {
     const [u, c, z, b] = await Promise.all([
@@ -166,74 +159,11 @@ export default function Hierarchy() {
     fetchAll();
   };
 
-  const TABLE: Record<EntityType, 'unions' | 'conferences' | 'zones' | 'branches'> = {
-    union: 'unions', conference: 'conferences', zone: 'zones', branch: 'branches',
-  };
-
-  const openEdit = (type: EntityType, row: any) => {
-    setEditItem({ type, row });
-    setEditForm({ name: row.name || '', description: row.description || '', institution: row.institution || '' });
-  };
-
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editItem || !editForm.name.trim()) return;
-    const payload: any = { name: editForm.name.trim(), description: editForm.description || null };
-    if (editItem.type === 'branch') payload.institution = editForm.institution || null;
-    const { error } = await supabase.from(TABLE[editItem.type] as any).update(payload).eq('id', editItem.row.id);
+  const handleDelete = async (table: string, id: string) => {
+    const { error } = await supabase.from(table as any).delete().eq('id', id);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'Saved successfully' });
-    setEditItem(null);
+    toast({ title: 'Deleted successfully' });
     fetchAll();
-  };
-
-  // Sibling options to receive the direct children of the item being deleted
-  const reassignOptions = (t: { type: EntityType; row: any } | null) => {
-    if (!t) return [] as { id: string; name: string }[];
-    switch (t.type) {
-      case 'union': return unions.filter(u => u.id !== t.row.id);
-      case 'conference': return conferences.filter(c => c.id !== t.row.id && c.union_id === t.row.union_id);
-      case 'zone': return zones.filter(z => z.id !== t.row.id && z.conference_id === t.row.conference_id);
-      case 'branch': return branches.filter(b => b.id !== t.row.id && b.zone_id === t.row.zone_id);
-      default: return [];
-    }
-  };
-
-  const deleteMeta: Record<EntityType, { childLabel: string; reassignLabel: string; placeholder: string; empty: string }> = {
-    union: { childLabel: 'conferences', reassignLabel: 'Move its conferences to', placeholder: 'Select destination union', empty: 'No other union available. Create another union first before deleting this one.' },
-    conference: { childLabel: 'zones', reassignLabel: 'Move its zones to', placeholder: 'Select destination conference', empty: 'No other conference in this union. Create another conference first before deleting this one.' },
-    zone: { childLabel: 'branches', reassignLabel: 'Move its branches to', placeholder: 'Select destination zone', empty: 'No other zone in this conference. Create another zone first before deleting this one.' },
-    branch: { childLabel: 'members', reassignLabel: 'Move its members to', placeholder: 'Select destination branch', empty: 'No other branch in this zone. Create another branch first before deleting this one.' },
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!deleteTarget || !reassignId) return;
-    const { type, row } = deleteTarget;
-    try {
-      if (type === 'union') {
-        let r = await supabase.from('conferences').update({ union_id: reassignId }).eq('union_id', row.id);
-        if (r.error) throw r.error;
-      } else if (type === 'conference') {
-        let r = await supabase.from('zones').update({ conference_id: reassignId }).eq('conference_id', row.id);
-        if (r.error) throw r.error;
-      } else if (type === 'zone') {
-        let r = await supabase.from('branches').update({ zone_id: reassignId }).eq('zone_id', row.id);
-        if (r.error) throw r.error;
-      } else if (type === 'branch') {
-        let r1 = await supabase.from('members').update({ branch_id: reassignId }).eq('branch_id', row.id);
-        if (r1.error) throw r1.error;
-        let r2 = await supabase.from('profiles').update({ branch_id: reassignId }).eq('branch_id', row.id);
-        if (r2.error) throw r2.error;
-      }
-      const { error } = await supabase.from(TABLE[type] as any).delete().eq('id', row.id);
-      if (error) throw error;
-      toast({ title: 'Deleted successfully' });
-      setDeleteTarget(null);
-      setReassignId('');
-      fetchAll();
-    } catch (err: any) {
-      toast({ title: 'Error', description: err.message || 'Could not delete.', variant: 'destructive' });
-    }
   };
 
   const parentOptions = () => {
@@ -345,7 +275,7 @@ export default function Hierarchy() {
           {/* Mobile */}
           <div className="md:hidden">
             {unions.map(u => (
-              <HierarchyCard key={u.id} item={u} fields={[{ label: 'Description', value: u.description || '—' }]} canEdit={canAddUnion} onEdit={() => openEdit('union', u)} />
+              <HierarchyCard key={u.id} item={u} fields={[{ label: 'Description', value: u.description || '—' }]} canDelete={canAddUnion} onDelete={() => handleDelete('unions', u.id)} />
             ))}
           </div>
           {/* Desktop */}
@@ -358,7 +288,7 @@ export default function Hierarchy() {
                     <TableRow key={u.id} className="border-white/10 hover:bg-white/5">
                       <TableCell className="font-medium text-white">{u.name}</TableCell>
                       <TableCell className="text-white/70">{u.description || '—'}</TableCell>
-                      {canAddUnion && <TableCell className="text-right"><Button variant="ghost" size="icon" className="text-white/70 hover:bg-white/10" onClick={() => openEdit('union', u)}><Pencil className="h-4 w-4 text-white/80" /></Button></TableCell>}
+                      {canAddUnion && <TableCell className="text-right"><Button variant="ghost" size="icon" className="text-white/70 hover:bg-white/10" onClick={() => handleDelete('unions', u.id)}><Trash2 className="h-4 w-4 text-red-400" /></Button></TableCell>}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -376,7 +306,7 @@ export default function Hierarchy() {
           </div>
           <div className="md:hidden">
             {visibleConferences.map(c => (
-              <HierarchyCard key={c.id} item={c} fields={[{ label: 'Union', value: unionMap.get(c.union_id) || '—' }, { label: 'Description', value: c.description || '—' }]} canEdit={canAddConference} onEdit={() => openEdit('conference', c)} />
+              <HierarchyCard key={c.id} item={c} fields={[{ label: 'Union', value: unionMap.get(c.union_id) || '—' }, { label: 'Description', value: c.description || '—' }]} canDelete={canAddConference} onDelete={() => handleDelete('conferences', c.id)} />
             ))}
           </div>
           <GlassCard className="hidden md:block !p-0 overflow-hidden">
@@ -389,7 +319,7 @@ export default function Hierarchy() {
                       <TableCell className="font-medium text-white">{c.name}</TableCell>
                       <TableCell className="text-white/70">{unionMap.get(c.union_id) || '—'}</TableCell>
                       <TableCell className="text-white/70">{c.description || '—'}</TableCell>
-                      {canAddConference && <TableCell className="text-right"><Button variant="ghost" size="icon" className="text-white/70 hover:bg-white/10" onClick={() => openEdit('conference', c)}><Pencil className="h-4 w-4 text-white/80" /></Button></TableCell>}
+                      {canAddConference && <TableCell className="text-right"><Button variant="ghost" size="icon" className="text-white/70 hover:bg-white/10" onClick={() => handleDelete('conferences', c.id)}><Trash2 className="h-4 w-4 text-red-400" /></Button></TableCell>}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -407,7 +337,7 @@ export default function Hierarchy() {
           </div>
           <div className="md:hidden">
             {visibleZones.map(z => (
-              <HierarchyCard key={z.id} item={z} fields={[{ label: 'Conference', value: confMap.get(z.conference_id) || '—' }, { label: 'Description', value: z.description || '—' }]} canEdit={canAddZone} onEdit={() => openEdit('zone', z)} />
+              <HierarchyCard key={z.id} item={z} fields={[{ label: 'Conference', value: confMap.get(z.conference_id) || '—' }, { label: 'Description', value: z.description || '—' }]} canDelete={canAddZone} onDelete={() => handleDelete('zones', z.id)} />
             ))}
           </div>
           <GlassCard className="hidden md:block !p-0 overflow-hidden">
@@ -420,7 +350,7 @@ export default function Hierarchy() {
                       <TableCell className="font-medium text-white">{z.name}</TableCell>
                       <TableCell className="text-white/70">{confMap.get(z.conference_id) || '—'}</TableCell>
                       <TableCell className="text-white/70">{z.description || '—'}</TableCell>
-                      {canAddZone && <TableCell className="text-right"><Button variant="ghost" size="icon" className="text-white/70 hover:bg-white/10" onClick={() => openEdit('zone', z)}><Pencil className="h-4 w-4 text-white/80" /></Button></TableCell>}
+                      {canAddZone && <TableCell className="text-right"><Button variant="ghost" size="icon" className="text-white/70 hover:bg-white/10" onClick={() => handleDelete('zones', z.id)}><Trash2 className="h-4 w-4 text-red-400" /></Button></TableCell>}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -438,7 +368,7 @@ export default function Hierarchy() {
           </div>
           <div className="md:hidden">
             {visibleBranches.map(b => (
-              <HierarchyCard key={b.id} item={b} fields={[{ label: 'Zone', value: zoneMap.get(b.zone_id) || '—' }, { label: 'Institution', value: b.institution || '—' }]} canEdit={canAddBranch} onEdit={() => openEdit('branch', b)} />
+              <HierarchyCard key={b.id} item={b} fields={[{ label: 'Zone', value: zoneMap.get(b.zone_id) || '—' }, { label: 'Institution', value: b.institution || '—' }]} canDelete={canAddBranch} onDelete={() => handleDelete('branches', b.id)} />
             ))}
           </div>
           <GlassCard className="hidden md:block !p-0 overflow-hidden">
@@ -451,7 +381,7 @@ export default function Hierarchy() {
                       <TableCell className="font-medium text-white">{b.name}</TableCell>
                       <TableCell className="text-white/70">{zoneMap.get(b.zone_id) || '—'}</TableCell>
                       <TableCell className="text-white/70">{b.institution || '—'}</TableCell>
-                      {canAddBranch && <TableCell className="text-right"><Button variant="ghost" size="icon" className="text-white/70 hover:bg-white/10" onClick={() => openEdit('branch', b)}><Pencil className="h-4 w-4 text-white/80" /></Button></TableCell>}
+                      {canAddBranch && <TableCell className="text-right"><Button variant="ghost" size="icon" className="text-white/70 hover:bg-white/10" onClick={() => handleDelete('branches', b.id)}><Trash2 className="h-4 w-4 text-red-400" /></Button></TableCell>}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -503,70 +433,6 @@ export default function Hierarchy() {
             </div>
           </div>
         </>
-      )}
-
-      {/* Edit overlay */}
-      {editItem && (
-        <>
-          <GlassOverlay onClick={() => setEditItem(null)} />
-          <div className="fixed inset-x-0 top-4 z-50 flex justify-center px-3 sm:px-4 animate-slide-down">
-            <div className="w-full max-w-lg min-w-0">
-              <GlassPanel
-                title={`Edit ${editItem.type.charAt(0).toUpperCase() + editItem.type.slice(1)}`}
-                subtitle="Edit"
-                showClose
-                onClose={() => setEditItem(null)}
-              >
-                <form onSubmit={handleSaveEdit} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-white/90">Name *</Label>
-                    <Input value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))} required className="bg-white/10 border-white/20 text-white placeholder:text-white/60" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-white/90">Description</Label>
-                    <Input value={editForm.description} onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))} className="bg-white/10 border-white/20 text-white placeholder:text-white/60" />
-                  </div>
-                  {editItem.type === 'branch' && (
-                    <div className="space-y-2">
-                      <Label className="text-white/90">Institution</Label>
-                      <Input value={editForm.institution} onChange={e => setEditForm(f => ({ ...f, institution: e.target.value }))} className="bg-white/10 border-white/20 text-white placeholder:text-white/60" />
-                    </div>
-                  )}
-                  <div className="flex gap-2 pt-1">
-                    <GlassButton type="submit" className="flex-1">Save</GlassButton>
-                    <GlassButton
-                      type="button"
-                      onClick={() => { const t = editItem; setEditItem(null); setReassignId(''); setDeleteTarget(t); }}
-                      className="flex-1 !bg-red-500/30 !border-red-400/40 hover:!bg-red-500/40"
-                    >
-                      Delete
-                    </GlassButton>
-                  </div>
-                </form>
-              </GlassPanel>
-            </div>
-          </div>
-        </>
-      )}
-
-      {/* Delete confirmation overlay */}
-      {deleteTarget && (
-        <ConfirmDeleteOverlay
-          open={!!deleteTarget}
-          onClose={() => { setDeleteTarget(null); setReassignId(''); }}
-          title={`Delete ${deleteTarget.row.name}`}
-          itemName={deleteTarget.row.name}
-          warning={`This will permanently delete this ${deleteTarget.type} and move its ${deleteMeta[deleteTarget.type].childLabel} to the destination you choose below. This action cannot be undone.`}
-          reassign={{
-            label: deleteMeta[deleteTarget.type].reassignLabel,
-            placeholder: deleteMeta[deleteTarget.type].placeholder,
-            emptyMessage: deleteMeta[deleteTarget.type].empty,
-            options: reassignOptions(deleteTarget),
-            value: reassignId,
-            onChange: setReassignId,
-          }}
-          onConfirm={handleConfirmDelete}
-        />
       )}
     </DashboardLayout>
   );
