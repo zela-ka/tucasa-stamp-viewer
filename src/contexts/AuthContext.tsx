@@ -42,9 +42,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [profileLoaded, setProfileLoaded] = useState(false);
-  const authRunRef = useRef(0);
+  // Tracks which user id we have already loaded profile/roles for, so token
+  // refreshes (which fire onAuthStateChange repeatedly) never re-trigger a fetch.
+  const loadedForRef = useRef<string | null>(null);
 
   const fetchProfile = async (userId: string): Promise<Profile | null> => {
+    const started = performance.now();
+    console.log('[Auth] profile query start for', userId);
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -52,10 +56,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       .maybeSingle();
 
     if (error) {
-      console.error('[Auth] profile fetch failed:', error);
+      console.error('[Auth] profile query FAILED:', error.message, error);
       return null;
     }
 
+    console.log(
+      `[Auth] profile query done in ${Math.round(performance.now() - started)}ms — ${data ? 'row returned' : 'NO ROW (null)'}`,
+    );
     return data;
   };
 
@@ -117,85 +124,100 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user) setProfile(await fetchProfile(user.id));
   };
 
-
-  const hydrate = useCallback(async (nextSession: Session | null) => {
-    const runId = ++authRunRef.current;
-    const isCurrent = () => authRunRef.current === runId;
-
-    setLoading(true);
+  // Load profile, roles and super-admin flag for a signed-in user. This is the
+  // ONLY place that reads user-scoped data, and it runs at most once per user id.
+  const loadUserData = useCallback(async (u: User) => {
+    const started = performance.now();
+    console.log('[Auth] loading user data for', u.id);
     setProfileLoaded(false);
-    setSession(nextSession);
-    setUser(nextSession?.user ?? null);
 
-    try {
-      if (nextSession?.user) {
-        const results = await Promise.allSettled([
-          fetchProfile(nextSession.user.id),
-          fetchUserRoles(nextSession.user.id),
-          supabase.rpc('is_super_admin', { _uid: nextSession.user.id }),
-        ]);
-        if (!isCurrent()) return;
-        const profileRes = results[0];
-        const rolesRes = results[1];
-        const superRes = results[2];
-        setProfile(profileRes.status === 'fulfilled' ? profileRes.value : null);
-        setUserRoles(rolesRes.status === 'fulfilled' ? rolesRes.value : []);
-        const superData = superRes.status === 'fulfilled' ? (superRes.value as any)?.data : false;
-        setIsSuperAdmin(Boolean(superData));
-        results.forEach((r, i) => {
-          if (r.status === 'rejected') console.error('[Auth] hydrate step', i, 'failed:', r.reason);
-        });
-      } else {
-        setProfile(null);
-        setUserRoles([]);
-        setIsSuperAdmin(false);
-      }
-    } catch (err) {
-      console.error('[Auth] hydrate failed:', err);
-    } finally {
-      if (isCurrent()) {
-        setProfileLoaded(true);
-        setLoading(false);
-      }
-    }
+    const results = await Promise.allSettled([
+      fetchProfile(u.id),
+      fetchUserRoles(u.id),
+      supabase.rpc('is_super_admin', { _uid: u.id }),
+    ]);
+
+    const [profileRes, rolesRes, superRes] = results;
+    setProfile(profileRes.status === 'fulfilled' ? profileRes.value : null);
+    setUserRoles(rolesRes.status === 'fulfilled' ? rolesRes.value : []);
+    setIsSuperAdmin(
+      superRes.status === 'fulfilled' ? Boolean((superRes.value as any)?.data) : false,
+    );
+    results.forEach((r, i) => {
+      if (r.status === 'rejected') console.error('[Auth] user-data step', i, 'rejected:', r.reason);
+    });
+
+    // Never leave the app stuck loading, even if a query failed — profileLoaded
+    // only means "we finished trying", not "a profile exists".
+    setProfileLoaded(true);
+    console.log(
+      `[Auth] user data ready in ${Math.round(performance.now() - started)}ms`,
+      { hasProfile: profileRes.status === 'fulfilled' && !!profileRes.value },
+    );
   }, []);
 
   useEffect(() => {
-    let mounted = true;
+    let active = true;
 
-    const hydrateIfMounted = async (session: Session | null) => {
-      if (!mounted) return;
-      try {
-        await hydrate(session);
-      } catch {}
-    };
+    // Register the listener FIRST. In supabase-js v2 this also fires an
+    // INITIAL_SESSION event with the persisted session on cold load, so it is
+    // the single canonical entry point for every auth transition.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, nextSession) => {
+      if (!active) return;
+      console.log('[Auth] event:', event, '| user:', nextSession?.user?.id ?? 'none');
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'TOKEN_REFRESHED') {
-        setSession(session);
-        setUser(session?.user ?? null);
+      // Synchronous state only inside the callback — never await here (it can
+      // deadlock the auth client). Session/user always reflect the latest event.
+      setSession(nextSession);
+      setUser(nextSession?.user ?? null);
+      setLoading(false);
+
+      const nextUserId = nextSession?.user?.id ?? null;
+
+      if (!nextUserId) {
+        // Signed out (or no session): clear scoped data. Do NOT treat a transient
+        // event as a profile failure — mark loaded so guards can redirect cleanly.
+        loadedForRef.current = null;
+        setProfile(null);
+        setUserRoles([]);
+        setIsSuperAdmin(false);
+        setProfileLoaded(true);
         return;
       }
 
-      // Defer to avoid deadlocks inside the auth callback
-      setTimeout(() => hydrateIfMounted(session), 0);
+      // Only (re)fetch scoped data when the actual user changes. TOKEN_REFRESHED,
+      // USER_UPDATED for the same user, etc. must not spawn duplicate requests.
+      if (loadedForRef.current !== nextUserId) {
+        loadedForRef.current = nextUserId;
+        setProfileLoaded(false);
+        // Defer out of the auth callback to avoid re-entrancy with the client.
+        setTimeout(() => {
+          if (active) loadUserData(nextSession!.user);
+        }, 0);
+      }
     });
 
+    // Fallback: guarantees `loading` resolves even if no INITIAL_SESSION arrives.
     supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (!active) return;
       if (error) {
-        console.error('[Auth] initial session failed:', error);
-        supabase.auth.signOut({ scope: 'local' }).catch(() => {});
-        hydrateIfMounted(null);
+        console.error('[Auth] getSession error:', error.message);
+        setLoading(false);
+        setProfileLoaded(true);
         return;
       }
-      hydrateIfMounted(session);
+      if (!session) {
+        console.log('[Auth] no persisted session on load');
+        setLoading(false);
+        setProfileLoaded(true);
+      }
     });
 
     return () => {
-      mounted = false;
+      active = false;
       subscription.unsubscribe();
     };
-  }, [hydrate]);
+  }, [loadUserData]);
 
   const isUnionLeader = userRoles.some(r => r.hierarchy_level === 'union') || isSuperAdmin;
 
@@ -217,20 +239,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const signIn = async (phone: string, password: string) => {
-    setLoading(true);
-    try {
-      setProfileLoaded(false);
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: phoneToEmail(phone),
-        password,
-      });
-      if (error) throw error;
-      await hydrate(data.session);
-    } catch (error) {
-      setLoading(false);
-      setProfileLoaded(true);
+    console.log('[Auth] sign-in started for', phone);
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: phoneToEmail(phone),
+      password,
+    });
+    if (error) {
+      console.error('[Auth] sign-in failed:', error.message);
       throw error;
     }
+    // The onAuthStateChange SIGNED_IN event drives session + profile loading.
+    // Route guards keep showing the splash until profileLoaded flips true.
+    console.log('[Auth] sign-in successful, session created for', data.user?.id);
   };
 
   const signUp = async (phone: string, password: string, fullName: string, branchId: string, institution?: string) => {
