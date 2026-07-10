@@ -1,9 +1,7 @@
-import { useEffect, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes, Navigate, useLocation } from "react-router-dom";
 import { PageTransition } from "@/components/PageTransition";
 import { StartupScreen } from "@/components/StartupScreen";
-import { useStartupSplash } from "@/hooks/useStartupSplash";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -27,33 +25,22 @@ function needsOnboarding(profile: any) {
 
 function ProtectedRoute({ children, allowIncomplete = false }: { children: React.ReactNode; allowIncomplete?: boolean }) {
   const { user, profile, loading, profileLoaded } = useAuth();
-  const [dashboardReady, setDashboardReady] = useState(false);
-  const showSplash = useStartupSplash(loading, dashboardReady, Boolean(user));
 
-  useEffect(() => {
-    if (!user) {
-      setDashboardReady(false);
-      return;
-    }
-
-    setDashboardReady(false);
-    const timer = window.setTimeout(() => {
-      setDashboardReady(true);
-    }, 1200);
-
-    return () => window.clearTimeout(timer);
-  }, [user]);
-  if (showSplash) return <StartupScreen />;
+  // 1. Auth session not resolved yet — never redirect here.
+  if (loading) return <StartupScreen />;
+  // 2. No session — go to the landing/auth page.
   if (!user) return <Navigate to="/auth" replace />;
+  // 3. Session exists but profile still loading — wait, do NOT bounce.
   if (!profileLoaded) return <StartupScreen />;
+  // 4. Session + profile ready: enforce onboarding for protected pages.
   if (!allowIncomplete && needsOnboarding(profile)) return <Navigate to="/welcome" replace />;
   return <>{children}</>;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
   const { user, profile, loading, profileLoaded } = useAuth();
-  const showSplash = useStartupSplash(loading, true, Boolean(user));
-  if (showSplash) return <StartupScreen />;
+
+  if (loading) return <StartupScreen />;
   if (user) {
     if (!profileLoaded) return <StartupScreen />;
     if (needsOnboarding(profile)) return <Navigate to="/welcome" replace />;
