@@ -108,46 +108,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user) await fetchProfile(user.id);
   };
 
+  const hydrateSession = async (nextSession: Session | null, mounted = true) => {
+    if (!mounted) return;
+    setSession(nextSession);
+    setUser(nextSession?.user ?? null);
+
+    try {
+      if (nextSession?.user) {
+        const results = await Promise.allSettled([
+          fetchProfile(nextSession.user.id),
+          fetchUserRoles(nextSession.user.id),
+          supabase.rpc('is_super_admin', { _uid: nextSession.user.id }),
+        ]);
+        const superRes = results[2];
+        const superData = superRes.status === 'fulfilled' ? (superRes.value as any)?.data : false;
+        if (mounted) setIsSuperAdmin(Boolean(superData));
+        results.forEach((r, i) => {
+          if (r.status === 'rejected') console.error('[Auth] hydrate step', i, 'failed:', r.reason);
+        });
+      } else {
+        setProfile(null);
+        setUserRoles([]);
+        setIsSuperAdmin(false);
+      }
+    } catch (err) {
+      console.error('[Auth] hydrate failed:', err);
+    } finally {
+      if (mounted) setLoading(false);
+    }
+  };
+
 
   useEffect(() => {
     let mounted = true;
 
-    const hydrate = async (session: Session | null) => {
-      if (!mounted) return;
-      setSession(session);
-      setUser(session?.user ?? null);
-      try {
-        if (session?.user) {
-          const results = await Promise.allSettled([
-            fetchProfile(session.user.id),
-            fetchUserRoles(session.user.id),
-            supabase.rpc('is_super_admin', { _uid: session.user.id }),
-          ]);
-          const superRes = results[2];
-          const superData = superRes.status === 'fulfilled' ? (superRes.value as any)?.data : false;
-          if (mounted) setIsSuperAdmin(Boolean(superData));
-          results.forEach((r, i) => {
-            if (r.status === 'rejected') console.error('[Auth] hydrate step', i, 'failed:', r.reason);
-          });
-        } else {
-          setProfile(null);
-          setUserRoles([]);
-          setIsSuperAdmin(false);
-        }
-      } catch (err) {
-        console.error('[Auth] hydrate failed:', err);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       // Defer to avoid deadlocks inside the auth callback
-      setTimeout(() => hydrate(session), 0);
+      setTimeout(() => hydrateSession(session, mounted), 0);
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      hydrate(session);
+      hydrateSession(session, mounted);
     });
 
     return () => {
@@ -178,13 +179,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async (phone: string, password: string) => {
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: phoneToEmail(phone),
         password,
       });
       if (error) throw error;
+      await hydrateSession(data.session);
     } finally {
-      setLoading(false);
+      if (!session) setLoading(false);
     }
   };
 
@@ -192,7 +194,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setLoading(true);
     try {
       const clean = phone.replace(/\D/g, '');
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email: phoneToEmail(phone),
         password,
         options: {
@@ -201,6 +203,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         },
       });
       if (error) throw error;
+      if (data.session) await hydrateSession(data.session);
     } finally {
       setLoading(false);
     }
