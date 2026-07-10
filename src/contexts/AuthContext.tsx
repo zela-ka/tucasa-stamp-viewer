@@ -20,6 +20,7 @@ interface AuthContextType {
   profile: Profile | null;
   userRoles: UserRole[];
   loading: boolean;
+  profileLoaded: boolean;
   isUnionLeader: boolean;
   isSuperAdmin: boolean;
   signIn: (phone: string, password: string) => Promise<void>;
