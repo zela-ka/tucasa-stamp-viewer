@@ -64,6 +64,12 @@ export default function Hierarchy() {
   const [dialogType, setDialogType] = useState<'union' | 'conference' | 'zone' | 'branch'>('union');
   const [form, setForm] = useState({ name: '', description: '', institution: '', parent_id: '' });
 
+  type EntityType = 'union' | 'conference' | 'zone' | 'branch';
+  const [editItem, setEditItem] = useState<null | { type: EntityType; row: any }>(null);
+  const [editForm, setEditForm] = useState({ name: '', description: '', institution: '' });
+  const [deleteTarget, setDeleteTarget] = useState<null | { type: EntityType; row: any }>(null);
+  const [reassignId, setReassignId] = useState('');
+
   const fetchAll = async () => {
     const [u, c, z, b] = await Promise.all([
       supabase.from('unions').select('*'),
