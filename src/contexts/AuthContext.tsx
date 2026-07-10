@@ -44,25 +44,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [profileLoaded, setProfileLoaded] = useState(false);
   const authRunRef = useRef(0);
 
-  const fetchProfile = async (userId: string) => {
-    const { data } = await supabase
+  const fetchProfile = async (userId: string): Promise<Profile | null> => {
+    const { data, error } = await supabase
       .from('profiles')
       .select('*')
       .eq('user_id', userId)
-      .single();
-    setProfile(data);
+      .maybeSingle();
+
+    if (error) {
+      console.error('[Auth] profile fetch failed:', error);
+      return null;
+    }
+
+    return data;
   };
 
-  const fetchUserRoles = async (userId: string) => {
-    const { data: roles } = await supabase
+  const fetchUserRoles = async (userId: string): Promise<UserRole[]> => {
+    const { data: roles, error: rolesError } = await supabase
       .from('user_roles')
       .select('id, role_id, hierarchy_level, level_id')
       .eq('user_id', userId);
 
-    if (!roles || roles.length === 0) {
-      setUserRoles([]);
-      return;
+    if (rolesError) {
+      console.error('[Auth] roles fetch failed:', rolesError);
+      return [];
     }
+
+    if (!roles || roles.length === 0) return [];
 
     const roleIds = [...new Set(roles.map(r => r.role_id))];
     const { data: roleData } = await supabase
@@ -91,7 +99,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const roleNameMap = new Map((roleData || []).map(r => [r.id, r.name]));
 
-    const enrichedRoles: UserRole[] = roles.map(r => ({
+    return roles.map(r => ({
       id: r.id,
       role_id: r.role_id,
       hierarchy_level: r.hierarchy_level,
@@ -99,16 +107,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       role_name: roleNameMap.get(r.role_id) || 'Unknown',
       permissions: rolePermMap.get(r.role_id) || [],
     }));
-
-    setUserRoles(enrichedRoles);
   };
 
   const refreshRoles = async () => {
-    if (user) await fetchUserRoles(user.id);
+    if (user) setUserRoles(await fetchUserRoles(user.id));
   };
 
   const refreshProfile = async () => {
-    if (user) await fetchProfile(user.id);
+    if (user) setProfile(await fetchProfile(user.id));
   };
 
 
@@ -129,7 +135,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           supabase.rpc('is_super_admin', { _uid: nextSession.user.id }),
         ]);
         if (!isCurrent()) return;
+        const profileRes = results[0];
+        const rolesRes = results[1];
         const superRes = results[2];
+        setProfile(profileRes.status === 'fulfilled' ? profileRes.value : null);
+        setUserRoles(rolesRes.status === 'fulfilled' ? rolesRes.value : []);
         const superData = superRes.status === 'fulfilled' ? (superRes.value as any)?.data : false;
         setIsSuperAdmin(Boolean(superData));
         results.forEach((r, i) => {
@@ -160,12 +170,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch {}
     };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'TOKEN_REFRESHED') {
+        setSession(session);
+        setUser(session?.user ?? null);
+        return;
+      }
+
       // Defer to avoid deadlocks inside the auth callback
       setTimeout(() => hydrateIfMounted(session), 0);
     });
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('[Auth] initial session failed:', error);
+        supabase.auth.signOut({ scope: 'local' }).catch(() => {});
+        hydrateIfMounted(null);
+        return;
+      }
       hydrateIfMounted(session);
     });
 
