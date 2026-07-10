@@ -63,7 +63,6 @@ Deno.serve(async (req) => {
     });
 
     const smsBody = await smsRes.text();
-    console.log('NextSMS response:', smsRes.status, smsBody);
     if (!smsRes.ok) {
       console.error('NextSMS error:', smsRes.status, smsBody);
       return new Response(JSON.stringify({ error: 'Failed to send SMS', details: smsBody }), {
