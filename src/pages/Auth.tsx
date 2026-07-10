@@ -129,7 +129,7 @@ export default function Auth() {
 
       await signUp(phone, password, fullName.replace(/\s+/g, ' ').trim().toUpperCase(), branchId, institution);
       await signIn(phone, password);
-      navigate('/welcome', { replace: true, state: { fromSignup: true } as any });
+      navigate('/dashboard', { replace: true });
     } catch (err: any) {
       toast({ title: 'Verification failed', description: err.message, variant: 'destructive' });
     } finally {
