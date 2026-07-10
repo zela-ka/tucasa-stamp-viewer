@@ -40,6 +40,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [profileLoaded, setProfileLoaded] = useState(false);
 
   const fetchProfile = async (userId: string) => {
     const { data } = await supabase
@@ -116,6 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!mounted) return;
       setSession(session);
       setUser(session?.user ?? null);
+      if (session?.user) setProfileLoaded(false);
       try {
         if (session?.user) {
           const results = await Promise.allSettled([
@@ -137,7 +139,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       } catch (err) {
         console.error('[Auth] hydrate failed:', err);
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted) {
+          setProfileLoaded(true);
+          setLoading(false);
+        }
       }
     };
 
