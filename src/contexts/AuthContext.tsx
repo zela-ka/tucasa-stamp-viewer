@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import type { Tables } from '@/integrations/supabase/types';
@@ -20,7 +20,6 @@ interface AuthContextType {
   profile: Profile | null;
   userRoles: UserRole[];
   loading: boolean;
-  profileLoaded: boolean;
   isUnionLeader: boolean;
   isSuperAdmin: boolean;
   signIn: (phone: string, password: string) => Promise<void>;
@@ -41,36 +40,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userRoles, setUserRoles] = useState<UserRole[]>([]);
   const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [profileLoaded, setProfileLoaded] = useState(false);
-  const authRunRef = useRef(0);
 
-  const fetchProfile = async (userId: string): Promise<Profile | null> => {
-    const { data, error } = await supabase
+  const fetchProfile = async (userId: string) => {
+    const { data } = await supabase
       .from('profiles')
       .select('*')
       .eq('user_id', userId)
-      .maybeSingle();
-
-    if (error) {
-      console.error('[Auth] profile fetch failed:', error);
-      return null;
-    }
-
-    return data;
+      .single();
+    setProfile(data);
   };
 
-  const fetchUserRoles = async (userId: string): Promise<UserRole[]> => {
-    const { data: roles, error: rolesError } = await supabase
+  const fetchUserRoles = async (userId: string) => {
+    const { data: roles } = await supabase
       .from('user_roles')
       .select('id, role_id, hierarchy_level, level_id')
       .eq('user_id', userId);
 
-    if (rolesError) {
-      console.error('[Auth] roles fetch failed:', rolesError);
-      return [];
+    if (!roles || roles.length === 0) {
+      setUserRoles([]);
+      return;
     }
-
-    if (!roles || roles.length === 0) return [];
 
     const roleIds = [...new Set(roles.map(r => r.role_id))];
     const { data: roleData } = await supabase
@@ -99,7 +88,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const roleNameMap = new Map((roleData || []).map(r => [r.id, r.name]));
 
-    return roles.map(r => ({
+    const enrichedRoles: UserRole[] = roles.map(r => ({
       id: r.id,
       role_id: r.role_id,
       hierarchy_level: r.hierarchy_level,
@@ -107,95 +96,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       role_name: roleNameMap.get(r.role_id) || 'Unknown',
       permissions: rolePermMap.get(r.role_id) || [],
     }));
+
+    setUserRoles(enrichedRoles);
   };
 
   const refreshRoles = async () => {
-    if (user) setUserRoles(await fetchUserRoles(user.id));
+    if (user) await fetchUserRoles(user.id);
   };
 
   const refreshProfile = async () => {
-    if (user) setProfile(await fetchProfile(user.id));
+    if (user) await fetchProfile(user.id);
   };
 
-
-  const hydrate = useCallback(async (nextSession: Session | null) => {
-    const runId = ++authRunRef.current;
-    const isCurrent = () => authRunRef.current === runId;
-
-    setLoading(true);
-    setProfileLoaded(false);
-    setSession(nextSession);
-    setUser(nextSession?.user ?? null);
-
-    try {
-      if (nextSession?.user) {
-        const results = await Promise.allSettled([
-          fetchProfile(nextSession.user.id),
-          fetchUserRoles(nextSession.user.id),
-          supabase.rpc('is_super_admin', { _uid: nextSession.user.id }),
-        ]);
-        if (!isCurrent()) return;
-        const profileRes = results[0];
-        const rolesRes = results[1];
-        const superRes = results[2];
-        setProfile(profileRes.status === 'fulfilled' ? profileRes.value : null);
-        setUserRoles(rolesRes.status === 'fulfilled' ? rolesRes.value : []);
-        const superData = superRes.status === 'fulfilled' ? (superRes.value as any)?.data : false;
-        setIsSuperAdmin(Boolean(superData));
-        results.forEach((r, i) => {
-          if (r.status === 'rejected') console.error('[Auth] hydrate step', i, 'failed:', r.reason);
-        });
-      } else {
-        setProfile(null);
-        setUserRoles([]);
-        setIsSuperAdmin(false);
-      }
-    } catch (err) {
-      console.error('[Auth] hydrate failed:', err);
-    } finally {
-      if (isCurrent()) {
-        setProfileLoaded(true);
-        setLoading(false);
-      }
-    }
-  }, []);
 
   useEffect(() => {
     let mounted = true;
 
-    const hydrateIfMounted = async (session: Session | null) => {
+    const hydrate = async (session: Session | null) => {
       if (!mounted) return;
+      setSession(session);
+      setUser(session?.user ?? null);
       try {
-        await hydrate(session);
-      } catch {}
+        if (session?.user) {
+          const results = await Promise.allSettled([
+            fetchProfile(session.user.id),
+            fetchUserRoles(session.user.id),
+            supabase.rpc('is_super_admin', { _uid: session.user.id }),
+          ]);
+          const superRes = results[2];
+          const superData = superRes.status === 'fulfilled' ? (superRes.value as any)?.data : false;
+          if (mounted) setIsSuperAdmin(Boolean(superData));
+          results.forEach((r, i) => {
+            if (r.status === 'rejected') console.error('[Auth] hydrate step', i, 'failed:', r.reason);
+          });
+        } else {
+          setProfile(null);
+          setUserRoles([]);
+          setIsSuperAdmin(false);
+        }
+      } catch (err) {
+        console.error('[Auth] hydrate failed:', err);
+      } finally {
+        if (mounted) setLoading(false);
+      }
     };
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'TOKEN_REFRESHED') {
-        setSession(session);
-        setUser(session?.user ?? null);
-        return;
-      }
-
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       // Defer to avoid deadlocks inside the auth callback
-      setTimeout(() => hydrateIfMounted(session), 0);
+      setTimeout(() => hydrate(session), 0);
     });
 
-    supabase.auth.getSession().then(({ data: { session }, error }) => {
-      if (error) {
-        console.error('[Auth] initial session failed:', error);
-        supabase.auth.signOut({ scope: 'local' }).catch(() => {});
-        hydrateIfMounted(null);
-        return;
-      }
-      hydrateIfMounted(session);
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      hydrate(session);
     });
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [hydrate]);
+  }, []);
 
   const isUnionLeader = userRoles.some(r => r.hierarchy_level === 'union') || isSuperAdmin;
 
@@ -219,17 +178,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async (phone: string, password: string) => {
     setLoading(true);
     try {
-      setProfileLoaded(false);
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email: phoneToEmail(phone),
         password,
       });
       if (error) throw error;
-      await hydrate(data.session);
-    } catch (error) {
+    } finally {
       setLoading(false);
-      setProfileLoaded(true);
-      throw error;
     }
   };
 
@@ -262,7 +217,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   return (
     <AuthContext.Provider value={{
-      user, session, profile, userRoles, loading, profileLoaded,
+      user, session, profile, userRoles, loading,
       isUnionLeader, isSuperAdmin, signIn, signUp, signOut, hasPermission, highestLevel, refreshRoles, refreshProfile,
     }}>
       {children}

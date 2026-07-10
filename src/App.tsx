@@ -26,7 +26,7 @@ function needsOnboarding(profile: any) {
 }
 
 function ProtectedRoute({ children, allowIncomplete = false }: { children: React.ReactNode; allowIncomplete?: boolean }) {
-  const { user, profile, loading, profileLoaded } = useAuth();
+  const { user, profile, loading } = useAuth();
   const [dashboardReady, setDashboardReady] = useState(false);
   const showSplash = useStartupSplash(loading, dashboardReady, Boolean(user));
 
@@ -45,17 +45,15 @@ function ProtectedRoute({ children, allowIncomplete = false }: { children: React
   }, [user]);
   if (showSplash) return <StartupScreen />;
   if (!user) return <Navigate to="/auth" replace />;
-  if (!profileLoaded) return <StartupScreen />;
   if (!allowIncomplete && needsOnboarding(profile)) return <Navigate to="/welcome" replace />;
   return <>{children}</>;
 }
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
-  const { user, profile, loading, profileLoaded } = useAuth();
+  const { user, profile, loading } = useAuth();
   const showSplash = useStartupSplash(loading, true, Boolean(user));
   if (showSplash) return <StartupScreen />;
   if (user) {
-    if (!profileLoaded) return <StartupScreen />;
     if (needsOnboarding(profile)) return <Navigate to="/welcome" replace />;
     return <Navigate to="/dashboard" replace />;
   }
