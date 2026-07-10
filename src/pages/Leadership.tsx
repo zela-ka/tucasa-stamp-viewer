@@ -566,6 +566,16 @@ export default function Leadership() {
           </div>
         </>
       )}
+      {deleteLeader && (
+        <ConfirmDeleteOverlay
+          open={!!deleteLeader}
+          onClose={() => setDeleteLeader(null)}
+          title={`Remove ${toUpperName(deleteLeader.user_name)}`}
+          itemName={deleteLeader.user_name}
+          warning={`This will permanently remove ${toUpperName(deleteLeader.user_name)} as ${deleteLeader.role_name} at ${toTitleCase(deleteLeader.level_name)}. This action cannot be undone.`}
+          onConfirm={handleConfirmRemove}
+        />
+      )}
     </DashboardLayout>
   );
 }
