@@ -71,7 +71,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    return new Response(JSON.stringify({ success: true, phone: normalized, provider: smsBody }), {
+    return new Response(JSON.stringify({ success: true, phone: normalized }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (err) {
