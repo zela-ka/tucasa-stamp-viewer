@@ -248,8 +248,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.error('[Auth] sign-in failed:', error.message);
       throw error;
     }
-    // The onAuthStateChange SIGNED_IN event drives session + profile loading.
-    // Route guards keep showing the splash until profileLoaded flips true.
+
+    if (data.session?.user) {
+      const signedInUser = data.session.user;
+      setSession(data.session);
+      setUser(signedInUser);
+      setLoading(false);
+
+      if (loadedForRef.current !== signedInUser.id) {
+        loadedForRef.current = signedInUser.id;
+        await loadUserData(signedInUser);
+      }
+    }
+
     console.log('[Auth] sign-in successful, session created for', data.user?.id);
   };
 
