@@ -345,7 +345,7 @@ export default function Hierarchy() {
           {/* Mobile */}
           <div className="md:hidden">
             {unions.map(u => (
-              <HierarchyCard key={u.id} item={u} fields={[{ label: 'Description', value: u.description || '—' }]} canDelete={canAddUnion} onDelete={() => handleDelete('unions', u.id)} />
+              <HierarchyCard key={u.id} item={u} fields={[{ label: 'Description', value: u.description || '—' }]} canEdit={canAddUnion} onEdit={() => openEdit('union', u)} />
             ))}
           </div>
           {/* Desktop */}
@@ -358,7 +358,7 @@ export default function Hierarchy() {
                     <TableRow key={u.id} className="border-white/10 hover:bg-white/5">
                       <TableCell className="font-medium text-white">{u.name}</TableCell>
                       <TableCell className="text-white/70">{u.description || '—'}</TableCell>
-                      {canAddUnion && <TableCell className="text-right"><Button variant="ghost" size="icon" className="text-white/70 hover:bg-white/10" onClick={() => handleDelete('unions', u.id)}><Trash2 className="h-4 w-4 text-red-400" /></Button></TableCell>}
+                      {canAddUnion && <TableCell className="text-right"><Button variant="ghost" size="icon" className="text-white/70 hover:bg-white/10" onClick={() => openEdit('union', u)}><Pencil className="h-4 w-4 text-white/80" /></Button></TableCell>}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -376,7 +376,7 @@ export default function Hierarchy() {
           </div>
           <div className="md:hidden">
             {visibleConferences.map(c => (
-              <HierarchyCard key={c.id} item={c} fields={[{ label: 'Union', value: unionMap.get(c.union_id) || '—' }, { label: 'Description', value: c.description || '—' }]} canDelete={canAddConference} onDelete={() => handleDelete('conferences', c.id)} />
+              <HierarchyCard key={c.id} item={c} fields={[{ label: 'Union', value: unionMap.get(c.union_id) || '—' }, { label: 'Description', value: c.description || '—' }]} canEdit={canAddConference} onEdit={() => openEdit('conference', c)} />
             ))}
           </div>
           <GlassCard className="hidden md:block !p-0 overflow-hidden">
@@ -389,7 +389,7 @@ export default function Hierarchy() {
                       <TableCell className="font-medium text-white">{c.name}</TableCell>
                       <TableCell className="text-white/70">{unionMap.get(c.union_id) || '—'}</TableCell>
                       <TableCell className="text-white/70">{c.description || '—'}</TableCell>
-                      {canAddConference && <TableCell className="text-right"><Button variant="ghost" size="icon" className="text-white/70 hover:bg-white/10" onClick={() => handleDelete('conferences', c.id)}><Trash2 className="h-4 w-4 text-red-400" /></Button></TableCell>}
+                      {canAddConference && <TableCell className="text-right"><Button variant="ghost" size="icon" className="text-white/70 hover:bg-white/10" onClick={() => openEdit('conference', c)}><Pencil className="h-4 w-4 text-white/80" /></Button></TableCell>}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -407,7 +407,7 @@ export default function Hierarchy() {
           </div>
           <div className="md:hidden">
             {visibleZones.map(z => (
-              <HierarchyCard key={z.id} item={z} fields={[{ label: 'Conference', value: confMap.get(z.conference_id) || '—' }, { label: 'Description', value: z.description || '—' }]} canDelete={canAddZone} onDelete={() => handleDelete('zones', z.id)} />
+              <HierarchyCard key={z.id} item={z} fields={[{ label: 'Conference', value: confMap.get(z.conference_id) || '—' }, { label: 'Description', value: z.description || '—' }]} canEdit={canAddZone} onEdit={() => openEdit('zone', z)} />
             ))}
           </div>
           <GlassCard className="hidden md:block !p-0 overflow-hidden">
@@ -420,7 +420,7 @@ export default function Hierarchy() {
                       <TableCell className="font-medium text-white">{z.name}</TableCell>
                       <TableCell className="text-white/70">{confMap.get(z.conference_id) || '—'}</TableCell>
                       <TableCell className="text-white/70">{z.description || '—'}</TableCell>
-                      {canAddZone && <TableCell className="text-right"><Button variant="ghost" size="icon" className="text-white/70 hover:bg-white/10" onClick={() => handleDelete('zones', z.id)}><Trash2 className="h-4 w-4 text-red-400" /></Button></TableCell>}
+                      {canAddZone && <TableCell className="text-right"><Button variant="ghost" size="icon" className="text-white/70 hover:bg-white/10" onClick={() => openEdit('zone', z)}><Pencil className="h-4 w-4 text-white/80" /></Button></TableCell>}
                     </TableRow>
                   ))}
                 </TableBody>
@@ -438,7 +438,7 @@ export default function Hierarchy() {
           </div>
           <div className="md:hidden">
             {visibleBranches.map(b => (
-              <HierarchyCard key={b.id} item={b} fields={[{ label: 'Zone', value: zoneMap.get(b.zone_id) || '—' }, { label: 'Institution', value: b.institution || '—' }]} canDelete={canAddBranch} onDelete={() => handleDelete('branches', b.id)} />
+              <HierarchyCard key={b.id} item={b} fields={[{ label: 'Zone', value: zoneMap.get(b.zone_id) || '—' }, { label: 'Institution', value: b.institution || '—' }]} canEdit={canAddBranch} onEdit={() => openEdit('branch', b)} />
             ))}
           </div>
           <GlassCard className="hidden md:block !p-0 overflow-hidden">
@@ -451,7 +451,7 @@ export default function Hierarchy() {
                       <TableCell className="font-medium text-white">{b.name}</TableCell>
                       <TableCell className="text-white/70">{zoneMap.get(b.zone_id) || '—'}</TableCell>
                       <TableCell className="text-white/70">{b.institution || '—'}</TableCell>
-                      {canAddBranch && <TableCell className="text-right"><Button variant="ghost" size="icon" className="text-white/70 hover:bg-white/10" onClick={() => handleDelete('branches', b.id)}><Trash2 className="h-4 w-4 text-red-400" /></Button></TableCell>}
+                      {canAddBranch && <TableCell className="text-right"><Button variant="ghost" size="icon" className="text-white/70 hover:bg-white/10" onClick={() => openEdit('branch', b)}><Pencil className="h-4 w-4 text-white/80" /></Button></TableCell>}
                     </TableRow>
                   ))}
                 </TableBody>
