@@ -15,6 +15,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { useToast } from '@/hooks/use-toast';
 import { SEO } from '@/components/SEO';
 import { GlassCard, GlassPanel, GlassButton, GlassOverlay, GlassScrollContainer, GlassItemButton } from '@/components/glass';
+import { ConfirmDeleteOverlay } from '@/components/ConfirmDeleteOverlay';
 import { toTitleCase, toUpperName, byNameAsc } from '@/lib/utils';
 
 interface LeaderRow {
@@ -106,6 +107,7 @@ export default function Leadership() {
 
   const [form, setForm] = useState({ user_id: '', role_id: '', hierarchy_level: '' as string, level_id: '' });
   const [openLevel, setOpenLevel] = useState<string | null>(null);
+  const [deleteLeader, setDeleteLeader] = useState<LeaderRow | null>(null);
   
 
   // Scope derived from user roles + membership
@@ -335,10 +337,12 @@ export default function Leadership() {
   };
 
 
-  const handleRemove = async (id: string) => {
-    const { error } = await supabase.from('user_roles').delete().eq('id', id);
+  const handleConfirmRemove = async () => {
+    if (!deleteLeader) return;
+    const { error } = await supabase.from('user_roles').delete().eq('id', deleteLeader.id);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
     toast({ title: 'Leader removed' });
+    setDeleteLeader(null);
     fetchData();
   };
 
