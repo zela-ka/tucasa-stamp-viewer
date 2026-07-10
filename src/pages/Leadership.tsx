@@ -513,7 +513,7 @@ export default function Leadership() {
                                 </div>
                                 {canManage && (
                                   <div className="flex flex-col gap-1 shrink-0">
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-white/10" onClick={() => handleRemove(l.id)}>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-white/10" onClick={() => setDeleteLeader(l)}>
                                       <Trash2 className="h-3.5 w-3.5 text-red-400" />
                                     </Button>
                                   </div>
