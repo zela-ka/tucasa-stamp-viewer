@@ -166,11 +166,74 @@ export default function Hierarchy() {
     fetchAll();
   };
 
-  const handleDelete = async (table: string, id: string) => {
-    const { error } = await supabase.from(table as any).delete().eq('id', id);
+  const TABLE: Record<EntityType, 'unions' | 'conferences' | 'zones' | 'branches'> = {
+    union: 'unions', conference: 'conferences', zone: 'zones', branch: 'branches',
+  };
+
+  const openEdit = (type: EntityType, row: any) => {
+    setEditItem({ type, row });
+    setEditForm({ name: row.name || '', description: row.description || '', institution: row.institution || '' });
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editItem || !editForm.name.trim()) return;
+    const payload: any = { name: editForm.name.trim(), description: editForm.description || null };
+    if (editItem.type === 'branch') payload.institution = editForm.institution || null;
+    const { error } = await supabase.from(TABLE[editItem.type] as any).update(payload).eq('id', editItem.row.id);
     if (error) { toast({ title: 'Error', description: error.message, variant: 'destructive' }); return; }
-    toast({ title: 'Deleted successfully' });
+    toast({ title: 'Saved successfully' });
+    setEditItem(null);
     fetchAll();
+  };
+
+  // Sibling options to receive the direct children of the item being deleted
+  const reassignOptions = (t: { type: EntityType; row: any } | null) => {
+    if (!t) return [] as { id: string; name: string }[];
+    switch (t.type) {
+      case 'union': return unions.filter(u => u.id !== t.row.id);
+      case 'conference': return conferences.filter(c => c.id !== t.row.id && c.union_id === t.row.union_id);
+      case 'zone': return zones.filter(z => z.id !== t.row.id && z.conference_id === t.row.conference_id);
+      case 'branch': return branches.filter(b => b.id !== t.row.id && b.zone_id === t.row.zone_id);
+      default: return [];
+    }
+  };
+
+  const deleteMeta: Record<EntityType, { childLabel: string; reassignLabel: string; placeholder: string; empty: string }> = {
+    union: { childLabel: 'conferences', reassignLabel: 'Move its conferences to', placeholder: 'Select destination union', empty: 'No other union available. Create another union first before deleting this one.' },
+    conference: { childLabel: 'zones', reassignLabel: 'Move its zones to', placeholder: 'Select destination conference', empty: 'No other conference in this union. Create another conference first before deleting this one.' },
+    zone: { childLabel: 'branches', reassignLabel: 'Move its branches to', placeholder: 'Select destination zone', empty: 'No other zone in this conference. Create another zone first before deleting this one.' },
+    branch: { childLabel: 'members', reassignLabel: 'Move its members to', placeholder: 'Select destination branch', empty: 'No other branch in this zone. Create another branch first before deleting this one.' },
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget || !reassignId) return;
+    const { type, row } = deleteTarget;
+    try {
+      if (type === 'union') {
+        let r = await supabase.from('conferences').update({ union_id: reassignId }).eq('union_id', row.id);
+        if (r.error) throw r.error;
+      } else if (type === 'conference') {
+        let r = await supabase.from('zones').update({ conference_id: reassignId }).eq('conference_id', row.id);
+        if (r.error) throw r.error;
+      } else if (type === 'zone') {
+        let r = await supabase.from('branches').update({ zone_id: reassignId }).eq('zone_id', row.id);
+        if (r.error) throw r.error;
+      } else if (type === 'branch') {
+        let r1 = await supabase.from('members').update({ branch_id: reassignId }).eq('branch_id', row.id);
+        if (r1.error) throw r1.error;
+        let r2 = await supabase.from('profiles').update({ branch_id: reassignId }).eq('branch_id', row.id);
+        if (r2.error) throw r2.error;
+      }
+      const { error } = await supabase.from(TABLE[type] as any).delete().eq('id', row.id);
+      if (error) throw error;
+      toast({ title: 'Deleted successfully' });
+      setDeleteTarget(null);
+      setReassignId('');
+      fetchAll();
+    } catch (err: any) {
+      toast({ title: 'Error', description: err.message || 'Could not delete.', variant: 'destructive' });
+    }
   };
 
   const parentOptions = () => {
