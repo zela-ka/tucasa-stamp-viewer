@@ -192,25 +192,19 @@ export default function Leadership() {
       visibleZones = new Set(allZones.map(z => z.id));
       visibleBranches = new Set(allBranches.map(b => b.id));
     } else if (userRoles.length > 0) {
-      // Leader scope: their own level + descendants + view union
+      // Leader scope: STRICTLY their own scope chain (own level + ancestors + union).
+      // No downward cascade — a leader sees only their own branch/zone/conference leaders.
       showUnion = true;
       userRoles.forEach(r => {
         if (r.hierarchy_level === 'conference') visibleConferences.add(r.level_id);
         else if (r.hierarchy_level === 'zone') visibleZones.add(r.level_id);
         else if (r.hierarchy_level === 'branch') visibleBranches.add(r.level_id);
       });
-      // Also see parent chain for context
+      // Include own membership branch chain too
+      if (profile?.branch_id) visibleBranches.add(profile.branch_id);
+      // Walk upward only: branch -> zone -> conference
+      allBranches.forEach(b => { if (visibleBranches.has(b.id)) visibleZones.add(b.zone_id); });
       allZones.forEach(z => { if (visibleZones.has(z.id)) visibleConferences.add(z.conference_id); });
-      allBranches.forEach(b => {
-        if (visibleBranches.has(b.id)) {
-          visibleZones.add(b.zone_id);
-          const zz = allZones.find(x => x.id === b.zone_id);
-          if (zz) visibleConferences.add(zz.conference_id);
-        }
-      });
-      // Cascade down
-      allZones.forEach(z => { if (visibleConferences.has(z.conference_id)) visibleZones.add(z.id); });
-      allBranches.forEach(b => { if (visibleZones.has(b.zone_id)) visibleBranches.add(b.id); });
     } else {
       // Plain member: see union + their conference/zone/branch chain
       showUnion = true;
