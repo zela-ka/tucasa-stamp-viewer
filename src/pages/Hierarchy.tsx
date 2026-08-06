@@ -15,6 +15,7 @@ import { Plus, Pencil, Building2, MapPin, GitBranch, Globe, Network, ArrowLeft }
 import { useToast } from '@/hooks/use-toast';
 import { SEO } from '@/components/SEO';
 import { GlassOverlay, GlassPanel, GlassScrollContainer, GlassCard, GlassButton, GlassItemButton } from '@/components/glass';
+import { usePaged, ListPagination } from '@/components/ListPagination';
 import { ConfirmDeleteOverlay } from '@/components/ConfirmDeleteOverlay';
 import { computeScope } from '@/lib/scope';
 import { toTitleCase, byNameAsc } from '@/lib/utils';
