@@ -351,7 +351,7 @@ export default function Hierarchy() {
           </div>
           {/* Mobile */}
           <div className="md:hidden">
-            {unions.map(u => (
+            {unionPage.pageItems.map(u => (
               <HierarchyCard key={u.id} item={u} fields={[{ label: 'Description', value: u.description || '—' }]} canEdit={canAddUnion} onEdit={() => openEdit('union', u)} />
             ))}
           </div>
@@ -361,7 +361,7 @@ export default function Hierarchy() {
               <Table>
                 <TableHeader><TableRow className="border-white/15 hover:bg-transparent"><TableHead className="text-white/85">Name</TableHead><TableHead className="text-white/85">Description</TableHead>{canAddUnion && <TableHead className="text-right text-white/85">Actions</TableHead>}</TableRow></TableHeader>
                 <TableBody>
-                  {unions.map(u => (
+                  {unionPage.pageItems.map(u => (
                     <TableRow key={u.id} className="border-white/10 hover:bg-white/5">
                       <TableCell className="font-medium text-white">{u.name}</TableCell>
                       <TableCell className="text-white/70">{u.description || '—'}</TableCell>
@@ -372,6 +372,7 @@ export default function Hierarchy() {
               </Table>
             </div>
           </GlassCard>
+          <ListPagination page={unionPage.page} totalPages={unionPage.totalPages} total={unionPage.total} pageSize={unionPage.pageSize} onPageChange={unionPage.setPage} />
         </TabsContent>
         )}
 
@@ -382,7 +383,7 @@ export default function Hierarchy() {
             {canAddConference && <GlassButton size="sm" onClick={() => openAdd('conference')}><Plus className="h-4 w-4 mr-1" /> Add</GlassButton>}
           </div>
           <div className="md:hidden">
-            {visibleConferences.map(c => (
+            {confPage.pageItems.map(c => (
               <HierarchyCard key={c.id} item={c} fields={[{ label: 'Union', value: unionMap.get(c.union_id) || '—' }, { label: 'Description', value: c.description || '—' }]} canEdit={canAddConference} onEdit={() => openEdit('conference', c)} />
             ))}
           </div>
@@ -391,7 +392,7 @@ export default function Hierarchy() {
               <Table>
                 <TableHeader><TableRow className="border-white/15 hover:bg-transparent"><TableHead className="text-white/85">Name</TableHead><TableHead className="text-white/85">Union</TableHead><TableHead className="text-white/85">Description</TableHead>{canAddConference && <TableHead className="text-right text-white/85">Actions</TableHead>}</TableRow></TableHeader>
                 <TableBody>
-                  {visibleConferences.map(c => (
+                  {confPage.pageItems.map(c => (
                     <TableRow key={c.id} className="border-white/10 hover:bg-white/5">
                       <TableCell className="font-medium text-white">{c.name}</TableCell>
                       <TableCell className="text-white/70">{unionMap.get(c.union_id) || '—'}</TableCell>
@@ -403,6 +404,7 @@ export default function Hierarchy() {
               </Table>
             </div>
           </GlassCard>
+          <ListPagination page={confPage.page} totalPages={confPage.totalPages} total={confPage.total} pageSize={confPage.pageSize} onPageChange={confPage.setPage} />
         </TabsContent>
         )}
 
@@ -413,7 +415,7 @@ export default function Hierarchy() {
             {canAddZone && <GlassButton size="sm" onClick={() => openAdd('zone')}><Plus className="h-4 w-4 mr-1" /> Add</GlassButton>}
           </div>
           <div className="md:hidden">
-            {visibleZones.map(z => (
+            {zonePage.pageItems.map(z => (
               <HierarchyCard key={z.id} item={z} fields={[{ label: 'Conference', value: confMap.get(z.conference_id) || '—' }, { label: 'Description', value: z.description || '—' }]} canEdit={canAddZone} onEdit={() => openEdit('zone', z)} />
             ))}
           </div>
@@ -422,7 +424,7 @@ export default function Hierarchy() {
               <Table>
                 <TableHeader><TableRow className="border-white/15 hover:bg-transparent"><TableHead className="text-white/85">Name</TableHead><TableHead className="text-white/85">Conference</TableHead><TableHead className="text-white/85">Description</TableHead>{canAddZone && <TableHead className="text-right text-white/85">Actions</TableHead>}</TableRow></TableHeader>
                 <TableBody>
-                  {visibleZones.map(z => (
+                  {zonePage.pageItems.map(z => (
                     <TableRow key={z.id} className="border-white/10 hover:bg-white/5">
                       <TableCell className="font-medium text-white">{z.name}</TableCell>
                       <TableCell className="text-white/70">{confMap.get(z.conference_id) || '—'}</TableCell>
@@ -434,6 +436,7 @@ export default function Hierarchy() {
               </Table>
             </div>
           </GlassCard>
+          <ListPagination page={zonePage.page} totalPages={zonePage.totalPages} total={zonePage.total} pageSize={zonePage.pageSize} onPageChange={zonePage.setPage} />
         </TabsContent>
         )}
 
@@ -444,7 +447,7 @@ export default function Hierarchy() {
             {canAddBranch && <GlassButton size="sm" onClick={() => openAdd('branch')}><Plus className="h-4 w-4 mr-1" /> Add</GlassButton>}
           </div>
           <div className="md:hidden">
-            {visibleBranches.map(b => (
+            {branchPage.pageItems.map(b => (
               <HierarchyCard key={b.id} item={b} fields={[{ label: 'Zone', value: zoneMap.get(b.zone_id) || '—' }, { label: 'Institution', value: b.institution || '—' }]} canEdit={canAddBranch} onEdit={() => openEdit('branch', b)} />
             ))}
           </div>
@@ -453,7 +456,7 @@ export default function Hierarchy() {
               <Table>
                 <TableHeader><TableRow className="border-white/15 hover:bg-transparent"><TableHead className="text-white/85">Name</TableHead><TableHead className="text-white/85">Zone</TableHead><TableHead className="text-white/85">Institution</TableHead>{canAddBranch && <TableHead className="text-right text-white/85">Actions</TableHead>}</TableRow></TableHeader>
                 <TableBody>
-                  {visibleBranches.map(b => (
+                  {branchPage.pageItems.map(b => (
                     <TableRow key={b.id} className="border-white/10 hover:bg-white/5">
                       <TableCell className="font-medium text-white">{b.name}</TableCell>
                       <TableCell className="text-white/70">{zoneMap.get(b.zone_id) || '—'}</TableCell>
@@ -465,6 +468,7 @@ export default function Hierarchy() {
               </Table>
             </div>
           </GlassCard>
+          <ListPagination page={branchPage.page} totalPages={branchPage.totalPages} total={branchPage.total} pageSize={branchPage.pageSize} onPageChange={branchPage.setPage} />
         </TabsContent>
         )}
       </Tabs>
