@@ -265,6 +265,14 @@ export default function Hierarchy() {
   const zonePage = usePaged(visibleZones);
   const branchPage = usePaged(visibleBranches);
 
+  const overlayItems = useMemo(() => {
+    if (!overlay) return [] as any[];
+    if (overlay.level === 'conferences') return visibleConferences;
+    if (overlay.level === 'zones') return visibleZones.filter(z => z.conference_id === overlay.conference.id);
+    return visibleBranches.filter(b => b.zone_id === overlay.zone.id);
+  }, [overlay, visibleConferences, visibleZones, visibleBranches]);
+  const overlayPage = usePaged(overlayItems);
+
   // Which tabs to expose based on role level
   const showUnionsTab = isUnionLeader;
   const showConferencesTab = isUnionLeader || scope.conferenceIds.size > 0;
