@@ -481,6 +481,26 @@
   .page-transition-in  { animation: pageFadeIn  320ms cubic-bezier(0.22, 1, 0.36, 1) both; }
   .page-transition-out { animation: pageFadeOut 260ms cubic-bezier(0.4, 0, 0.9, 1) both; }
 
+  /* Staggered content reveal — children appear gradually */
+  @keyframes contentReveal {
+    from { opacity: 0; transform: translateY(14px) scale(0.985); filter: blur(4px); }
+    to   { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+  }
+  .page-transition-in main > * {
+    animation: contentReveal 520ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+  .page-transition-in main > *:nth-child(1) { animation-delay: 60ms; }
+  .page-transition-in main > *:nth-child(2) { animation-delay: 140ms; }
+  .page-transition-in main > *:nth-child(3) { animation-delay: 220ms; }
+  .page-transition-in main > *:nth-child(4) { animation-delay: 300ms; }
+  .page-transition-in main > *:nth-child(5) { animation-delay: 380ms; }
+  .page-transition-in main > *:nth-child(6) { animation-delay: 460ms; }
+  .page-transition-in main > *:nth-child(n+7) { animation-delay: 540ms; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .page-transition-in main > * { animation: none; }
+  }
+
   a, button, [role="button"], .premium-button, input, textarea, select, .church-card, .glass-card, .glass-card-hover {
     transition:
       background-color 280ms ease,
