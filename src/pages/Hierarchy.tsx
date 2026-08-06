@@ -258,6 +258,12 @@ export default function Hierarchy() {
   const confMap = new Map(conferences.map(c => [c.id, c.name]));
   const zoneMap = new Map(zones.map(z => [z.id, z.name]));
 
+  // Pagination — 10 items per page for each list
+  const unionPage = usePaged(unions);
+  const confPage = usePaged(visibleConferences);
+  const zonePage = usePaged(visibleZones);
+  const branchPage = usePaged(visibleBranches);
+
   // Which tabs to expose based on role level
   const showUnionsTab = isUnionLeader;
   const showConferencesTab = isUnionLeader || scope.conferenceIds.size > 0;
