@@ -494,15 +494,15 @@ export default function Hierarchy() {
                 <GlassScrollContainer>
                   <div className="grid gap-2 sm:gap-3 sm:grid-cols-2">
                     {overlay.level === 'conferences' ? (
-                      visibleConferences.map(c => (
+                      overlayPage.pageItems.map((c: any) => (
                         <GlassItemButton key={c.id} onClick={() => openOverlayZones(c)} title={c.name} subtitle={c.description || 'Conference'} />
                       ))
                     ) : overlay.level === 'zones' ? (
-                      visibleZones.filter(z => z.conference_id === overlay.conference.id).map(z => (
+                      overlayPage.pageItems.map((z: any) => (
                         <GlassItemButton key={z.id} onClick={() => openOverlayBranches(z)} title={z.name} subtitle={z.description || 'Zone'} />
                       ))
                     ) : (
-                      visibleBranches.filter(b => b.zone_id === overlay.zone.id).map(b => (
+                      overlayPage.pageItems.map((b: any) => (
                         <GlassCard key={b.id} variant="interactive" className="!p-3">
                           <h3 className="font-medium text-sm text-white break-words">{b.name}</h3>
                           {b.institution && <p className="text-xs text-white/70 break-words">{b.institution}</p>}
@@ -511,6 +511,7 @@ export default function Hierarchy() {
                     )}
                   </div>
                 </GlassScrollContainer>
+                <ListPagination page={overlayPage.page} totalPages={overlayPage.totalPages} total={overlayPage.total} pageSize={overlayPage.pageSize} onPageChange={overlayPage.setPage} />
                 {overlay.level !== 'conferences' && (
                   <div className="mt-4 flex gap-2">
                     <GlassButton size="sm" onClick={backOverlay}>
