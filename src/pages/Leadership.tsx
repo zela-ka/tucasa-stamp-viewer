@@ -10,11 +10,11 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Plus, Trash2, Shield, Network, MapPin, GitBranch, ArrowLeft, Globe, Building2, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, Shield, MapPin, GitBranch, ArrowLeft, Globe, Building2, ChevronDown } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { useToast } from '@/hooks/use-toast';
 import { SEO } from '@/components/SEO';
-import { GlassCard, GlassPanel, GlassButton, GlassOverlay, GlassScrollContainer, GlassItemButton } from '@/components/glass';
+import { GlassCard, GlassPanel, GlassButton } from '@/components/glass';
 import { ConfirmDeleteOverlay } from '@/components/ConfirmDeleteOverlay';
 import { toTitleCase, toUpperName, byNameAsc } from '@/lib/utils';
 
@@ -96,8 +96,6 @@ export default function Leadership() {
   const [leaders, setLeaders] = useState<LeaderRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [overlay, setOverlay] = useState<null | { level: 'conferences' } | { level: 'zones'; conference: any } | { level: 'branches'; conference: any; zone: any }>(null);
-  const [restoreOverlay, setRestoreOverlay] = useState<null | { level: 'branches'; conference: any; zone: any }>(null);
   const [roles, setRoles] = useState<{ id: string; name: string }[]>([]);
   const [profiles, setProfiles] = useState<{ user_id: string; full_name: string; email: string | null; phone?: string | null; branch_id?: string | null }[]>([]);
   const [unions, setUnions] = useState<{ id: string; name: string }[]>([]);
@@ -192,25 +190,19 @@ export default function Leadership() {
       visibleZones = new Set(allZones.map(z => z.id));
       visibleBranches = new Set(allBranches.map(b => b.id));
     } else if (userRoles.length > 0) {
-      // Leader scope: their own level + descendants + view union
+      // Leader scope: STRICTLY their own scope chain (own level + ancestors + union).
+      // No downward cascade — a leader sees only their own branch/zone/conference leaders.
       showUnion = true;
       userRoles.forEach(r => {
         if (r.hierarchy_level === 'conference') visibleConferences.add(r.level_id);
         else if (r.hierarchy_level === 'zone') visibleZones.add(r.level_id);
         else if (r.hierarchy_level === 'branch') visibleBranches.add(r.level_id);
       });
-      // Also see parent chain for context
+      // Include own membership branch chain too
+      if (profile?.branch_id) visibleBranches.add(profile.branch_id);
+      // Walk upward only: branch -> zone -> conference
+      allBranches.forEach(b => { if (visibleBranches.has(b.id)) visibleZones.add(b.zone_id); });
       allZones.forEach(z => { if (visibleZones.has(z.id)) visibleConferences.add(z.conference_id); });
-      allBranches.forEach(b => {
-        if (visibleBranches.has(b.id)) {
-          visibleZones.add(b.zone_id);
-          const zz = allZones.find(x => x.id === b.zone_id);
-          if (zz) visibleConferences.add(zz.conference_id);
-        }
-      });
-      // Cascade down
-      allZones.forEach(z => { if (visibleConferences.has(z.conference_id)) visibleZones.add(z.id); });
-      allBranches.forEach(b => { if (visibleZones.has(b.zone_id)) visibleBranches.add(b.id); });
     } else {
       // Plain member: see union + their conference/zone/branch chain
       showUnion = true;
@@ -251,14 +243,6 @@ export default function Leadership() {
   };
 
   useEffect(() => { fetchData(); /* eslint-disable-next-line */ }, [userRoles, profile?.branch_id, isSuperAdmin]);
-
-  const openOverlayConferences = () => setOverlay({ level: 'conferences' });
-  const openOverlayZones = (conference: any) => setOverlay({ level: 'zones', conference });
-  const openOverlayBranches = (zone: any) => {
-    if (!overlay || overlay.level !== 'zones') return;
-    setOverlay({ level: 'branches', conference: overlay.conference, zone });
-  };
-  const closeOverlay = () => setOverlay(null);
 
   const openAssignFor = (level: 'union' | 'conference' | 'zone' | 'branch', levelId: string) => {
     setForm({ user_id: '', role_id: '', hierarchy_level: level, level_id: levelId });
@@ -368,9 +352,6 @@ export default function Leadership() {
           <div className="flex items-center gap-2">
             <GlassButton size="icon" onClick={() => navigate('/dashboard')} className="h-10 w-10 rounded-full" aria-label="Back to dashboard">
               <ArrowLeft className="h-4 w-4" />
-            </GlassButton>
-            <GlassButton size="icon" onClick={openOverlayConferences} className="h-10 w-10 rounded-full" aria-label="Browse conferences">
-              <Network className="h-4 w-4" />
             </GlassButton>
           </div>
         </div>
@@ -530,41 +511,6 @@ export default function Leadership() {
             </div>
           );
         })()
-      )}
-      {overlay && (
-        <>
-          <GlassOverlay onClick={closeOverlay} />
-          <div className="fixed inset-x-0 top-4 z-50 flex justify-center px-3 sm:px-4 animate-slide-down">
-            <div className="w-full max-w-3xl min-w-0">
-              <GlassPanel
-                title={`Browse ${overlay.level}`}
-                subtitle={overlay.level === 'conferences' ? 'Conferences' : overlay.level === 'zones' ? 'Zones' : 'Branches'}
-                showClose
-                onClose={closeOverlay}
-              >
-                <GlassScrollContainer>
-                  <div className="grid gap-2 sm:gap-3 sm:grid-cols-2">
-                    {overlay.level === 'conferences' ? (
-                      [...conferences].sort(byNameAsc).map(c => (
-                        <GlassItemButton key={c.id} onClick={() => openOverlayZones(c)} title={c.name} subtitle="Conference" />
-                      ))
-                    ) : overlay.level === 'zones' ? (
-                      zones.filter(z => z.conference_id === overlay.conference.id).sort(byNameAsc).map(z => (
-                        <GlassItemButton key={z.id} onClick={() => openOverlayBranches(z)} title={z.name} subtitle="Zone" />
-                      ))
-                    ) : (
-                      branches.filter(b => b.zone_id === overlay.zone.id).sort(byNameAsc).map(b => (
-                        <GlassCard key={b.id} variant="interactive" className="!p-3">
-                          <h3 className="font-medium text-sm text-white break-words">{b.name}</h3>
-                        </GlassCard>
-                      ))
-                    )}
-                  </div>
-                </GlassScrollContainer>
-              </GlassPanel>
-            </div>
-          </div>
-        </>
       )}
       {deleteLeader && (
         <ConfirmDeleteOverlay
