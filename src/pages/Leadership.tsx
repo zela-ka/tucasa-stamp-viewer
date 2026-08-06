@@ -177,40 +177,21 @@ export default function Leadership() {
     // Compute visible scope
     const allZones = (zonesRes.data as any[]) || [];
     const allBranches = (branchesRes.data as any[]) || [];
-    const isUnionScope = isUnionLeader || isSuperAdmin;
-
     let visibleConferences = new Set<string>();
     let visibleZones = new Set<string>();
     let visibleBranches = new Set<string>();
-    let showUnion = false;
-
-    if (isUnionScope) {
-      showUnion = true;
-      visibleConferences = new Set((confsRes.data || []).map(c => c.id));
-      visibleZones = new Set(allZones.map(z => z.id));
-      visibleBranches = new Set(allBranches.map(b => b.id));
-    } else if (userRoles.length > 0) {
-      // Leader scope: STRICTLY their own scope chain (own level + ancestors + union).
-      // No downward cascade — a leader sees only their own branch/zone/conference leaders.
-      showUnion = true;
-      userRoles.forEach(r => {
-        if (r.hierarchy_level === 'conference') visibleConferences.add(r.level_id);
-        else if (r.hierarchy_level === 'zone') visibleZones.add(r.level_id);
-        else if (r.hierarchy_level === 'branch') visibleBranches.add(r.level_id);
-      });
-      // Include own membership branch chain too
-      if (profile?.branch_id) visibleBranches.add(profile.branch_id);
-      // Walk upward only: branch -> zone -> conference
-      allBranches.forEach(b => { if (visibleBranches.has(b.id)) visibleZones.add(b.zone_id); });
-      allZones.forEach(z => { if (visibleZones.has(z.id)) visibleConferences.add(z.conference_id); });
-    } else {
-      // Plain member: see union + their conference/zone/branch chain
-      showUnion = true;
-      const myBranch = profile?.branch_id ? allBranches.find(b => b.id === profile.branch_id) : null;
-      const myZone = myBranch ? allZones.find(z => z.id === myBranch.zone_id) : null;
-      if (myBranch) visibleBranches.add(myBranch.id);
-      if (myZone) { visibleZones.add(myZone.id); visibleConferences.add(myZone.conference_id); }
-    }
+    // EVERY user — including super admin / union leaders — sees ONLY their own
+    // chain: their branch, their zone, their conference, plus the Union.
+    const showUnion = true;
+    userRoles.forEach(r => {
+      if (r.hierarchy_level === 'conference') visibleConferences.add(r.level_id);
+      else if (r.hierarchy_level === 'zone') visibleZones.add(r.level_id);
+      else if (r.hierarchy_level === 'branch') visibleBranches.add(r.level_id);
+    });
+    if (profile?.branch_id) visibleBranches.add(profile.branch_id);
+    // Walk upward only: branch -> zone -> conference
+    allBranches.forEach(b => { if (visibleBranches.has(b.id)) visibleZones.add(b.zone_id); });
+    allZones.forEach(z => { if (visibleZones.has(z.id)) visibleConferences.add(z.conference_id); });
 
     const enriched: LeaderRow[] = (urRes.data || [])
       .filter((ur: any) => {
