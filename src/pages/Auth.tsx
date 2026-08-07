@@ -8,6 +8,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { SEO } from '@/components/SEO';
+import { appBgStyle } from '@/lib/appBackground';
 import { toTitleCase, byNameAsc } from '@/lib/utils';
 
 import { LogIn, UserPlus, X, Eye, EyeOff } from 'lucide-react';
@@ -164,13 +165,7 @@ export default function Auth() {
         description="Secure sign in and registration for TUCASA STUM member management."
       />
       <div className="relative z-10 min-h-screen w-full overflow-hidden flex flex-col items-center justify-center px-4"
-        style={{
-        background:
-          "radial-gradient(1200px 700px at 10% -10%, rgba(96,165,250,0.5), transparent 60%)," +
-          "radial-gradient(900px 600px at 100% 0%, rgba(186,230,253,0.35), transparent 60%)," +
-          "radial-gradient(900px 700px at 50% 120%, rgba(59,130,246,0.45), transparent 60%)," +
-          "linear-gradient(180deg, #173A82 0%, #1E4AA0 50%, #173A82 100%)",
-      }}
+        style={appBgStyle}
     >
       {/* Ambient glow */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none">
@@ -451,11 +446,13 @@ export default function Auth() {
             Sign In
           </Button>
           <Button
-            onClick={() => setOpenForm('signup')}
+            asChild
             className="auth-cta auth-cta-secondary flex-1 h-12 rounded-full text-base font-semibold text-white border-silver"
           >
-            <UserPlus className="w-4 h-4 mr-2" />
-            Sign Up
+            <a href="https://tims.tucasastu.com/register" target="_blank" rel="noopener noreferrer">
+              <UserPlus className="w-4 h-4 mr-2" />
+              Sign Up
+            </a>
           </Button>
         </div>
 
