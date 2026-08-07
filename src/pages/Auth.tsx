@@ -452,10 +452,10 @@ export default function Auth({ initialForm = null }: { initialForm?: 'signin' | 
             asChild
             className="auth-cta auth-cta-secondary flex-1 h-12 rounded-full text-base font-semibold text-white border-silver"
           >
-            <a href="https://tims.tucasastu.com/register" target="_blank" rel="noopener noreferrer">
+            <Link to="/register">
               <UserPlus className="w-4 h-4 mr-2" />
               Sign Up
-            </a>
+            </Link>
           </Button>
         </div>
 
