@@ -1,6 +1,11 @@
+import { appBgStyle } from "@/lib/appBackground";
+
 export function StartupScreen() {
   return (
-    <div className="relative min-h-screen flex flex-col items-center justify-center bg-[#0F172A]">
+    <div
+      className="relative min-h-screen flex flex-col items-center justify-center"
+      style={appBgStyle}
+    >
       {/* Ambient glow behind logo */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div
