@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -24,7 +24,7 @@ const Field = ({ label, children }: { label: string; children: React.ReactNode }
   </div>
 );
 
-export default function Auth() {
+export default function Auth({ initialForm = null }: { initialForm?: 'signin' | 'signup' | null }) {
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
@@ -37,7 +37,7 @@ export default function Auth() {
   const [zoneId, setZoneId] = useState('');
   const [branchId, setBranchId] = useState('');
   const [loading, setLoading] = useState(false);
-  const [openForm, setOpenForm] = useState<'signin' | 'signup' | 'otp' | null>(null);
+  const [openForm, setOpenForm] = useState<'signin' | 'signup' | 'otp' | null>(initialForm);
   const [otp, setOtp] = useState('');
   const [otpPhone, setOtpPhone] = useState('');
   const [resending, setResending] = useState(false);
@@ -67,7 +67,10 @@ export default function Auth() {
 
   const validatePhone = (value: string) => value.replace(/\D/g, '').length >= 9;
 
-  const resetForm = () => setOpenForm(null);
+  const resetForm = () => {
+    setOpenForm(null);
+    if (initialForm) navigate('/auth');
+  };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -449,10 +452,10 @@ export default function Auth() {
             asChild
             className="auth-cta auth-cta-secondary flex-1 h-12 rounded-full text-base font-semibold text-white border-silver"
           >
-            <a href="https://tims.tucasastu.com/register" target="_blank" rel="noopener noreferrer">
+            <Link to="/register">
               <UserPlus className="w-4 h-4 mr-2" />
               Sign Up
-            </a>
+            </Link>
           </Button>
         </div>
 

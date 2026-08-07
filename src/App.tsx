@@ -56,6 +56,7 @@ function AnimatedRoutes() {
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={<PublicRoute><Auth /></PublicRoute>} />
         <Route path="/auth" element={<PublicRoute><Auth /></PublicRoute>} />
+        <Route path="/register" element={<PublicRoute><Auth initialForm="signup" /></PublicRoute>} />
         <Route path="/welcome" element={<ProtectedRoute allowIncomplete><Welcome /></ProtectedRoute>} />
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/members" element={<ProtectedRoute><Members /></ProtectedRoute>} />
