@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { SEO } from '@/components/SEO';
+import { appBgStyle } from '@/lib/appBackground';
 
 import { Sparkles, PartyPopper, Loader2, CheckCircle2 } from 'lucide-react';
 
