@@ -13,11 +13,18 @@ function generateOTP(): string {
   return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
+// Every representation of the same number that may be stored on a profile.
+function phoneVariants(raw: string): string[] {
+  const digits = (raw || '').replace(/\D/g, '');
+  const nine = digits.startsWith('255') ? digits.slice(3) : digits.startsWith('0') ? digits.slice(1) : digits;
+  return [...new Set([digits, nine, '0' + nine, '255' + nine, '+255' + nine])].filter(Boolean);
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
-    const { phone } = await req.json();
+    const { phone, purpose } = await req.json();
     if (!phone || typeof phone !== 'string') {
       return new Response(JSON.stringify({ error: 'Phone is required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -36,6 +43,23 @@ Deno.serve(async (req) => {
       Deno.env.get('SUPABASE_URL')!,
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     );
+
+    // Password reset OTPs may only go to a phone number that exists on a profile.
+    if (purpose === 'reset') {
+      const { data: match, error: lookupErr } = await supabase
+        .from('profiles')
+        .select('id')
+        .in('phone', phoneVariants(phone))
+        .limit(1)
+        .maybeSingle();
+      if (lookupErr) throw lookupErr;
+      if (!match) {
+        return new Response(
+          JSON.stringify({ error: 'This phone number is not registered. Use the number in your membership details.' }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+    }
 
     const { error: insertErr } = await supabase.from('otp_codes').insert({
       phone: normalized, otp, verified: false,

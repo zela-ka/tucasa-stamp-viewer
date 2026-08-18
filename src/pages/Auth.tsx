@@ -168,7 +168,7 @@ export default function Auth({ initialForm = null }: { initialForm?: 'signin' | 
     }
     setLoading(true);
     try {
-      const { data, error } = await supabase.functions.invoke('send-otp', { body: { phone: resetPhone } });
+      const { data, error } = await supabase.functions.invoke('send-otp', { body: { phone: resetPhone, purpose: 'reset' } });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
       setResetOtp('');
@@ -184,7 +184,7 @@ export default function Auth({ initialForm = null }: { initialForm?: 'signin' | 
   const handleForgotResend = async () => {
     setResending(true);
     try {
-      const { data, error } = await supabase.functions.invoke('send-otp', { body: { phone: resetPhone } });
+      const { data, error } = await supabase.functions.invoke('send-otp', { body: { phone: resetPhone, purpose: 'reset' } });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
       toast({ title: 'OTP resent', description: 'A new code has been sent to your phone.' });
