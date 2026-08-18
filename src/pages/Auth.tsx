@@ -324,12 +324,127 @@ export default function Auth({ initialForm = null }: { initialForm?: 'signin' | 
                   </Button>
                   <button
                     type="button"
+                    onClick={() => { setResetPhone(phone); setOpenForm('forgot'); }}
+                    className="auth-link w-full text-center text-sm py-1"
+                  >
+                    Forgot password?
+                  </button>
+                  <button
+                    type="button"
                     onClick={resetForm}
                     className="auth-link w-full text-center text-sm py-1"
                   >
                     Cancel
                   </button>
                 </form>
+              </div>
+            )}
+
+            {(openForm === 'forgot' || openForm === 'forgot-otp' || openForm === 'forgot-reset') && (
+              <div className={formCardBase}>
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="absolute top-4 right-4 z-10 p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/15 transition-colors"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                <h2 className="text-white font-semibold mb-5 text-center text-lg tracking-[0.02em] drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
+                  {openForm === 'forgot' && 'Reset your password'}
+                  {openForm === 'forgot-otp' && 'Verify your phone'}
+                  {openForm === 'forgot-reset' && 'Set a new password'}
+                </h2>
+
+                {openForm === 'forgot' && (
+                  <form onSubmit={handleForgotSend} className="space-y-3">
+                    <Field label="Registered Phone Number">
+                      <Input
+                        type="tel"
+                        inputMode="tel"
+                        placeholder="0712345678"
+                        className="auth-input-readable"
+                        value={resetPhone}
+                        onChange={e => setResetPhone(e.target.value)}
+                        required
+                      />
+                    </Field>
+                    <Button type="submit" className="auth-submit w-full mt-1" disabled={loading}>
+                      {loading ? 'Sending OTP...' : 'Send OTP'}
+                    </Button>
+                    <button type="button" onClick={() => setOpenForm('signin')} className="auth-link w-full text-center text-sm py-1">
+                      Back to sign in
+                    </button>
+                  </form>
+                )}
+
+                {openForm === 'forgot-otp' && (
+                  <form onSubmit={handleForgotOtpContinue} className="space-y-3">
+                    <p className="text-white/80 text-sm text-center">
+                      Enter the code sent to {resetPhone}
+                    </p>
+                    <Field label="OTP Code">
+                      <Input
+                        inputMode="numeric"
+                        placeholder="123456"
+                        className="auth-input-readable tracking-[0.4em] text-center"
+                        value={resetOtp}
+                        onChange={e => setResetOtp(e.target.value)}
+                        required
+                      />
+                    </Field>
+                    <Button type="submit" className="auth-submit w-full mt-1">Confirm</Button>
+                    <button
+                      type="button"
+                      onClick={handleForgotResend}
+                      disabled={resending}
+                      className="auth-link w-full text-center text-sm py-1 disabled:opacity-60"
+                    >
+                      {resending ? 'Resending...' : 'Resend code'}
+                    </button>
+                  </form>
+                )}
+
+                {openForm === 'forgot-reset' && (
+                  <form onSubmit={handleResetPassword} className="space-y-3">
+                    <Field label="New Password (min 6 chars)">
+                      <div className="relative">
+                        <Input
+                          type={showNewPassword ? 'text' : 'password'}
+                          className="auth-input-readable pr-11"
+                          value={newPassword}
+                          onChange={e => setNewPassword(e.target.value)}
+                          required
+                          minLength={6}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewPassword(v => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800"
+                          aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </Field>
+                    <Field label="Confirm New Password">
+                      <Input
+                        type={showNewPassword ? 'text' : 'password'}
+                        className="auth-input-readable"
+                        value={confirmPassword}
+                        onChange={e => setConfirmPassword(e.target.value)}
+                        required
+                        minLength={6}
+                      />
+                    </Field>
+                    {confirmPassword.length > 0 && newPassword !== confirmPassword && (
+                      <p className="text-xs text-red-200">Passwords do not match</p>
+                    )}
+                    <Button type="submit" className="auth-submit w-full mt-1" disabled={loading}>
+                      {loading ? 'Updating...' : 'Update Password'}
+                    </Button>
+                  </form>
+                )}
               </div>
             )}
 
