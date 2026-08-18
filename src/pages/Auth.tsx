@@ -37,12 +37,17 @@ export default function Auth({ initialForm = null }: { initialForm?: 'signin' | 
   const [zoneId, setZoneId] = useState('');
   const [branchId, setBranchId] = useState('');
   const [loading, setLoading] = useState(false);
-  const [openForm, setOpenForm] = useState<'signin' | 'signup' | 'otp' | null>(initialForm);
+  const [openForm, setOpenForm] = useState<'signin' | 'signup' | 'otp' | 'forgot' | 'forgot-otp' | 'forgot-reset' | null>(initialForm);
   const [otp, setOtp] = useState('');
   const [otpPhone, setOtpPhone] = useState('');
   const [resending, setResending] = useState(false);
   const [showSignInPassword, setShowSignInPassword] = useState(false);
   const [showSignUpPassword, setShowSignUpPassword] = useState(false);
+  const [resetPhone, setResetPhone] = useState('');
+  const [resetOtp, setResetOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const { signIn, signUp } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -152,6 +157,83 @@ export default function Auth({ initialForm = null }: { initialForm?: 'signin' | 
       toast({ title: 'Resend failed', description: err.message, variant: 'destructive' });
     } finally {
       setResending(false);
+    }
+  };
+
+  const handleForgotSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validatePhone(resetPhone)) {
+      toast({ title: 'Invalid phone number', description: 'Please enter your registered phone number.', variant: 'destructive' });
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-otp', { body: { phone: resetPhone } });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      setResetOtp('');
+      setOpenForm('forgot-otp');
+      toast({ title: 'OTP sent', description: 'Check your phone for the verification code.' });
+    } catch (err: any) {
+      toast({ title: 'Failed to send OTP', description: err.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotResend = async () => {
+    setResending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-otp', { body: { phone: resetPhone } });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      toast({ title: 'OTP resent', description: 'A new code has been sent to your phone.' });
+    } catch (err: any) {
+      toast({ title: 'Resend failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setResending(false);
+    }
+  };
+
+  const handleForgotOtpContinue = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (resetOtp.trim().length < 4) {
+      toast({ title: 'Enter the code', description: 'Please enter the OTP sent to your phone.', variant: 'destructive' });
+      return;
+    }
+    setNewPassword('');
+    setConfirmPassword('');
+    setOpenForm('forgot-reset');
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) {
+      toast({ title: 'Password too short', description: 'Use at least 6 characters.', variant: 'destructive' });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({ title: 'Passwords do not match', description: 'Please confirm the same password.', variant: 'destructive' });
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('reset-password', {
+        body: { phone: resetPhone, otp: resetOtp, newPassword },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      toast({ title: 'Password updated', description: 'Sign in with your new password.' });
+      setPhone(resetPhone);
+      setPassword('');
+      setResetOtp('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setOpenForm('signin');
+    } catch (err: any) {
+      toast({ title: 'Reset failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
     }
   };
 
