@@ -37,12 +37,17 @@ export default function Auth({ initialForm = null }: { initialForm?: 'signin' | 
   const [zoneId, setZoneId] = useState('');
   const [branchId, setBranchId] = useState('');
   const [loading, setLoading] = useState(false);
-  const [openForm, setOpenForm] = useState<'signin' | 'signup' | 'otp' | null>(initialForm);
+  const [openForm, setOpenForm] = useState<'signin' | 'signup' | 'otp' | 'forgot' | 'forgot-otp' | 'forgot-reset' | null>(initialForm);
   const [otp, setOtp] = useState('');
   const [otpPhone, setOtpPhone] = useState('');
   const [resending, setResending] = useState(false);
   const [showSignInPassword, setShowSignInPassword] = useState(false);
   const [showSignUpPassword, setShowSignUpPassword] = useState(false);
+  const [resetPhone, setResetPhone] = useState('');
+  const [resetOtp, setResetOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const { signIn, signUp } = useAuth();
   const { toast } = useToast();
   const navigate = useNavigate();
@@ -155,6 +160,83 @@ export default function Auth({ initialForm = null }: { initialForm?: 'signin' | 
     }
   };
 
+  const handleForgotSend = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!validatePhone(resetPhone)) {
+      toast({ title: 'Invalid phone number', description: 'Please enter your registered phone number.', variant: 'destructive' });
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-otp', { body: { phone: resetPhone } });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      setResetOtp('');
+      setOpenForm('forgot-otp');
+      toast({ title: 'OTP sent', description: 'Check your phone for the verification code.' });
+    } catch (err: any) {
+      toast({ title: 'Failed to send OTP', description: err.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleForgotResend = async () => {
+    setResending(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('send-otp', { body: { phone: resetPhone } });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      toast({ title: 'OTP resent', description: 'A new code has been sent to your phone.' });
+    } catch (err: any) {
+      toast({ title: 'Resend failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setResending(false);
+    }
+  };
+
+  const handleForgotOtpContinue = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (resetOtp.trim().length < 4) {
+      toast({ title: 'Enter the code', description: 'Please enter the OTP sent to your phone.', variant: 'destructive' });
+      return;
+    }
+    setNewPassword('');
+    setConfirmPassword('');
+    setOpenForm('forgot-reset');
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPassword.length < 6) {
+      toast({ title: 'Password too short', description: 'Use at least 6 characters.', variant: 'destructive' });
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast({ title: 'Passwords do not match', description: 'Please confirm the same password.', variant: 'destructive' });
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('reset-password', {
+        body: { phone: resetPhone, otp: resetOtp, newPassword },
+      });
+      if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
+      toast({ title: 'Password updated', description: 'Sign in with your new password.' });
+      setPhone(resetPhone);
+      setPassword('');
+      setResetOtp('');
+      setNewPassword('');
+      setConfirmPassword('');
+      setOpenForm('signin');
+    } catch (err: any) {
+      toast({ title: 'Reset failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const formCardBase =
     'relative w-full max-h-[95vh] overflow-y-auto rounded-[30px] p-5 ' +
     'bg-gradient-to-br from-white/25 via-white/12 to-white/5 ' +
@@ -242,12 +324,127 @@ export default function Auth({ initialForm = null }: { initialForm?: 'signin' | 
                   </Button>
                   <button
                     type="button"
+                    onClick={() => { setResetPhone(phone); setOpenForm('forgot'); }}
+                    className="auth-link w-full text-center text-sm py-1"
+                  >
+                    Forgot password?
+                  </button>
+                  <button
+                    type="button"
                     onClick={resetForm}
                     className="auth-link w-full text-center text-sm py-1"
                   >
                     Cancel
                   </button>
                 </form>
+              </div>
+            )}
+
+            {(openForm === 'forgot' || openForm === 'forgot-otp' || openForm === 'forgot-reset') && (
+              <div className={formCardBase}>
+                <button
+                  type="button"
+                  onClick={resetForm}
+                  className="absolute top-4 right-4 z-10 p-1.5 rounded-full text-white/70 hover:text-white hover:bg-white/15 transition-colors"
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+                <h2 className="text-white font-semibold mb-5 text-center text-lg tracking-[0.02em] drop-shadow-[0_1px_2px_rgba(0,0,0,0.4)]">
+                  {openForm === 'forgot' && 'Reset your password'}
+                  {openForm === 'forgot-otp' && 'Verify your phone'}
+                  {openForm === 'forgot-reset' && 'Set a new password'}
+                </h2>
+
+                {openForm === 'forgot' && (
+                  <form onSubmit={handleForgotSend} className="space-y-3">
+                    <Field label="Registered Phone Number">
+                      <Input
+                        type="tel"
+                        inputMode="tel"
+                        placeholder="0712345678"
+                        className="auth-input-readable"
+                        value={resetPhone}
+                        onChange={e => setResetPhone(e.target.value)}
+                        required
+                      />
+                    </Field>
+                    <Button type="submit" className="auth-submit w-full mt-1" disabled={loading}>
+                      {loading ? 'Sending OTP...' : 'Send OTP'}
+                    </Button>
+                    <button type="button" onClick={() => setOpenForm('signin')} className="auth-link w-full text-center text-sm py-1">
+                      Back to sign in
+                    </button>
+                  </form>
+                )}
+
+                {openForm === 'forgot-otp' && (
+                  <form onSubmit={handleForgotOtpContinue} className="space-y-3">
+                    <p className="text-white/80 text-sm text-center">
+                      Enter the code sent to {resetPhone}
+                    </p>
+                    <Field label="OTP Code">
+                      <Input
+                        inputMode="numeric"
+                        placeholder="123456"
+                        className="auth-input-readable tracking-[0.4em] text-center"
+                        value={resetOtp}
+                        onChange={e => setResetOtp(e.target.value)}
+                        required
+                      />
+                    </Field>
+                    <Button type="submit" className="auth-submit w-full mt-1">Confirm</Button>
+                    <button
+                      type="button"
+                      onClick={handleForgotResend}
+                      disabled={resending}
+                      className="auth-link w-full text-center text-sm py-1 disabled:opacity-60"
+                    >
+                      {resending ? 'Resending...' : 'Resend code'}
+                    </button>
+                  </form>
+                )}
+
+                {openForm === 'forgot-reset' && (
+                  <form onSubmit={handleResetPassword} className="space-y-3">
+                    <Field label="New Password (min 6 chars)">
+                      <div className="relative">
+                        <Input
+                          type={showNewPassword ? 'text' : 'password'}
+                          className="auth-input-readable pr-11"
+                          value={newPassword}
+                          onChange={e => setNewPassword(e.target.value)}
+                          required
+                          minLength={6}
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowNewPassword(v => !v)}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-800"
+                          aria-label={showNewPassword ? 'Hide password' : 'Show password'}
+                        >
+                          {showNewPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </button>
+                      </div>
+                    </Field>
+                    <Field label="Confirm New Password">
+                      <Input
+                        type={showNewPassword ? 'text' : 'password'}
+                        className="auth-input-readable"
+                        value={confirmPassword}
+                        onChange={e => setConfirmPassword(e.target.value)}
+                        required
+                        minLength={6}
+                      />
+                    </Field>
+                    {confirmPassword.length > 0 && newPassword !== confirmPassword && (
+                      <p className="text-xs text-red-200">Passwords do not match</p>
+                    )}
+                    <Button type="submit" className="auth-submit w-full mt-1" disabled={loading}>
+                      {loading ? 'Updating...' : 'Update Password'}
+                    </Button>
+                  </form>
+                )}
               </div>
             )}
 
