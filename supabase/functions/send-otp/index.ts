@@ -25,17 +25,18 @@ Deno.serve(async (req) => {
 
   try {
     const { phone, purpose } = await req.json();
-    if (!phone || typeof phone !== 'string') {
-      return new Response(JSON.stringify({ error: 'Phone is required' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    const json = (body: unknown, status = 200) =>
+      new Response(JSON.stringify(body), {
+        status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+
+    if (!phone || typeof phone !== 'string') {
+      return json({ error: 'Phone not correct' });
     }
 
     const normalized = normalizePhone(phone);
     if (normalized.length < 12) {
-      return new Response(JSON.stringify({ error: 'Invalid phone number' }), {
-        status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return json({ error: 'Phone not correct' });
     }
 
     const otp = generateOTP();
@@ -54,10 +55,7 @@ Deno.serve(async (req) => {
         .maybeSingle();
       if (lookupErr) throw lookupErr;
       if (!match) {
-        return new Response(
-          JSON.stringify({ error: 'This phone number is not registered. Use the number in your membership details.' }),
-          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-        );
+        return json({ error: 'Phone not correct' });
       }
     }
 
