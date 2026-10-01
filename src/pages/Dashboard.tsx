@@ -28,7 +28,6 @@ import {
 interface MyMembership {
   id?: string;
   full_name: string;
-  email: string | null;
   phone: string | null;
   institution: string | null;
   is_active: boolean;
@@ -47,9 +46,11 @@ const ALL_MODULES: Array<{ to: string; title: string; desc: string; Icon: Lucide
 
 const FIELD_LABELS: Record<string, string> = {
   full_name: 'Name',
-  email: 'Email',
   phone: 'Phone',
   institution: 'Institution',
+  conference: 'Conference',
+  zone: 'Zone',
+  branch: 'Branch',
 };
 
 export default function Dashboard() {
@@ -62,9 +63,13 @@ export default function Dashboard() {
   const [avatar, setAvatar] = useState<string | null>(user ? getStoredAvatar(user.id) : null);
   
   const [editOpen, setEditOpen] = useState(false);
-  const [editForm, setEditForm] = useState({ full_name: '', email: '', phone: '', institution: '' });
+  const [editForm, setEditForm] = useState({ full_name: '', phone: '', institution: '' });
+  const [hierData, setHierData] = useState<{ conferences: any[]; zones: any[]; branches: any[] }>({ conferences: [], zones: [], branches: [] });
+  const [selConferenceId, setSelConferenceId] = useState('');
+  const [selZoneId, setSelZoneId] = useState('');
+  const [selBranchId, setSelBranchId] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [pendingPayload, setPendingPayload] = useState<{ full_name: string; email: string | null; phone: string | null; institution: string | null } | null>(null);
+  const [pendingPayload, setPendingPayload] = useState<{ full_name: string; phone: string | null; institution: string | null; branch_id: string } | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
