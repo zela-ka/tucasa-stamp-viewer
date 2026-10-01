@@ -45,6 +45,13 @@ const ALL_MODULES: Array<{ to: string; title: string; desc: string; Icon: Lucide
   { to: '/hierarchy',  title: 'Hierarchy',  desc: 'Union, Conferences, Zones na Branches.', Icon: Network, accent: 'from-bronze to-gold', unionOnly: true },
 ];
 
+const FIELD_LABELS: Record<string, string> = {
+  full_name: 'Name',
+  email: 'Email',
+  phone: 'Phone',
+  institution: 'Institution',
+};
+
 export default function Dashboard() {
   const { user, profile, userRoles, highestLevel, isUnionLeader, isSuperAdmin, signOut } = useAuth();
   const navigate = useNavigate();
@@ -398,8 +405,7 @@ export default function Dashboard() {
           </DialogHeader>
           <p className="text-sm text-muted-foreground">Una uhakika unataka kuhifadhi mabadiliko yafuatayo?</p>
           <div className="space-y-2 text-sm">
-            {pendingPayload && (
-              {(['full_name', 'email', 'phone', 'institution'] as const).map((field) => {
+            {pendingPayload && (['full_name', 'email', 'phone', 'institution'] as const).map((field) => {
                 const oldVal: string | null = field === 'full_name'
                   ? myMembership?.full_name ?? null
                   : field === 'email'
@@ -418,8 +424,7 @@ export default function Dashboard() {
                     </span>
                   </div>
                 );
-              })
-            )}
+              })}
           </div>
           <div className="flex gap-2 justify-end">
             <Button type="button" variant="outline" onClick={() => { setConfirmOpen(false); setEditOpen(true); }}>Cancel</Button>
