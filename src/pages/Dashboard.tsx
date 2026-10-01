@@ -28,7 +28,6 @@ import {
 interface MyMembership {
   id?: string;
   full_name: string;
-  email: string | null;
   phone: string | null;
   institution: string | null;
   is_active: boolean;
@@ -47,9 +46,11 @@ const ALL_MODULES: Array<{ to: string; title: string; desc: string; Icon: Lucide
 
 const FIELD_LABELS: Record<string, string> = {
   full_name: 'Name',
-  email: 'Email',
   phone: 'Phone',
   institution: 'Institution',
+  conference: 'Conference',
+  zone: 'Zone',
+  branch: 'Branch',
 };
 
 export default function Dashboard() {
@@ -62,9 +63,13 @@ export default function Dashboard() {
   const [avatar, setAvatar] = useState<string | null>(user ? getStoredAvatar(user.id) : null);
   
   const [editOpen, setEditOpen] = useState(false);
-  const [editForm, setEditForm] = useState({ full_name: '', email: '', phone: '', institution: '' });
+  const [editForm, setEditForm] = useState({ full_name: '', phone: '', institution: '' });
+  const [hierData, setHierData] = useState<{ conferences: any[]; zones: any[]; branches: any[] }>({ conferences: [], zones: [], branches: [] });
+  const [selConferenceId, setSelConferenceId] = useState('');
+  const [selZoneId, setSelZoneId] = useState('');
+  const [selBranchId, setSelBranchId] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
-  const [pendingPayload, setPendingPayload] = useState<{ full_name: string; email: string | null; phone: string | null; institution: string | null } | null>(null);
+  const [pendingPayload, setPendingPayload] = useState<{ full_name: string; phone: string | null; institution: string | null; branch_id: string } | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -100,20 +105,26 @@ export default function Dashboard() {
         setMyMembership({
           id: (m as any).id,
           full_name: (m as any).full_name,
-          email: (m as any).email,
           phone: (m as any).phone,
           institution: (m as any).institution,
           is_active: (m as any).is_active,
         });
 
-        const [bRes, allZ, allC, allU] = await Promise.all([
+        const [bRes, allZ, allC, allU, allB] = await Promise.all([
           supabase.from('branches').select('name, zone_id').eq('id', (m as any).branch_id).maybeSingle(),
           supabase.from('zones').select('id, name, conference_id'),
           supabase.from('conferences').select('id, name, union_id'),
           supabase.from('unions').select('id, name'),
+          supabase.from('branches').select('id, name, zone_id'),
         ]);
 
         if (cancelled) return;
+
+        setHierData({
+          conferences: (allC.data || []) as any[],
+          zones: (allZ.data || []) as any[],
+          branches: (allB.data || []) as any[],
+        });
 
         const b: any = bRes.data;
         const z: any = b ? (allZ.data || []).find((x: any) => x.id === b.zone_id) : null;
@@ -172,7 +183,18 @@ export default function Dashboard() {
     }
     toast({ title: 'Details saved' });
     setConfirmOpen(false);
-    setMyMembership(prev => prev ? { ...prev, ...pendingPayload } : prev);
+    const nb: any = hierData.branches.find(x => x.id === pendingPayload.branch_id);
+    const nz: any = nb ? hierData.zones.find(x => x.id === nb.zone_id) : null;
+    const nc: any = nz ? hierData.conferences.find(x => x.id === nz.conference_id) : null;
+    setMyMembership(prev => prev ? {
+      ...prev,
+      full_name: pendingPayload.full_name,
+      phone: pendingPayload.phone,
+      institution: pendingPayload.institution,
+      branch_name: nb?.name,
+      zone_name: nz?.name,
+      conference_name: nc?.name,
+    } : prev);
     setPendingPayload(null);
   };
 
@@ -329,10 +351,15 @@ export default function Dashboard() {
                 onClick={() => {
                   setEditForm({
                     full_name: myMembership.full_name || '',
-                    email: myMembership.email || '',
                     phone: myMembership.phone || '',
                     institution: myMembership.institution || '',
                   });
+                  const cb: any = hierData.branches.find(x => x.name === myMembership.branch_name);
+                  const cz: any = cb ? hierData.zones.find(x => x.id === cb.zone_id) : null;
+                  const cc: any = cz ? hierData.conferences.find(x => x.id === cz.conference_id) : null;
+                  setSelConferenceId(cc?.id || '');
+                  setSelZoneId(cz?.id || '');
+                  setSelBranchId(cb?.id || '');
                   setEditOpen(true);
                 }}
               >
@@ -343,7 +370,6 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
             <div><span className="text-white/70">Name:</span> <span className="font-medium text-white">{toUpperName(myMembership.full_name)}</span></div>
             <div><span className="text-white/70">Status:</span> <span className="font-medium text-white">{myMembership.is_active ? 'Active' : 'Inactive'}</span></div>
-            {myMembership.email && <div><span className="text-white/70">Email:</span> <span className="text-white break-all">{myMembership.email}</span></div>}
             {myMembership.phone && <div><span className="text-white/70">Phone:</span> <span className="text-white">{myMembership.phone}</span></div>}
             {myMembership.institution && <div><span className="text-white/70">Institution:</span> <span className="text-white">{myMembership.institution}</span></div>}
             {myMembership.union_name && <div><span className="text-white/70">Union:</span> <span className="text-white">{myMembership.union_name}</span></div>}
@@ -362,11 +388,15 @@ export default function Dashboard() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
+              if (!selBranchId) {
+                toast({ title: 'Chagua Branch', description: 'Tafadhali chagua Conference, Zone na Branch.', variant: 'destructive' });
+                return;
+              }
               setPendingPayload({
                 full_name: editForm.full_name.trim(),
-                email: editForm.email.trim() || null,
                 phone: editForm.phone.trim() || null,
                 institution: editForm.institution.trim() || null,
+                branch_id: selBranchId,
               });
               setEditOpen(false);
               setConfirmOpen(true);
@@ -378,10 +408,6 @@ export default function Dashboard() {
               <Input value={editForm.full_name} maxLength={100} onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))} required />
             </div>
             <div className="space-y-2">
-              <Label>Email</Label>
-              <Input type="email" value={editForm.email} maxLength={255} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} />
-            </div>
-            <div className="space-y-2">
               <Label>Phone Number</Label>
               <Input value={editForm.phone} maxLength={20} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} />
             </div>
@@ -389,7 +415,44 @@ export default function Dashboard() {
               <Label>Institution / College</Label>
               <Input value={editForm.institution} maxLength={100} onChange={e => setEditForm(f => ({ ...f, institution: e.target.value }))} />
             </div>
-            <p className="text-xs text-muted-foreground">Note: Branch cannot be changed here. Contact your branch leader if you have moved.</p>
+            <div className="space-y-2">
+              <Label>Conference</Label>
+              <select
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={selConferenceId}
+                onChange={e => { setSelConferenceId(e.target.value); setSelZoneId(''); setSelBranchId(''); }}
+                required
+              >
+                <option value="">— Chagua Conference —</option>
+                {hierData.conferences.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Zone</Label>
+              <select
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={selZoneId}
+                onChange={e => { setSelZoneId(e.target.value); setSelBranchId(''); }}
+                required
+                disabled={!selConferenceId}
+              >
+                <option value="">— Chagua Zone —</option>
+                {hierData.zones.filter((z: any) => z.conference_id === selConferenceId).map((z: any) => <option key={z.id} value={z.id}>{z.name}</option>)}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Branch</Label>
+              <select
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={selBranchId}
+                onChange={e => setSelBranchId(e.target.value)}
+                required
+                disabled={!selZoneId}
+              >
+                <option value="">— Chagua Branch —</option>
+                {hierData.branches.filter((b: any) => b.zone_id === selZoneId).map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            </div>
             <div className="flex gap-2 justify-end">
               <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={savingProfile}>{savingProfile ? 'Saving...' : 'Save'}</Button>
@@ -405,15 +468,28 @@ export default function Dashboard() {
           </DialogHeader>
           <p className="text-sm text-muted-foreground">Una uhakika unataka kuhifadhi mabadiliko yafuatayo?</p>
           <div className="space-y-2 text-sm">
-            {pendingPayload && (['full_name', 'email', 'phone', 'institution'] as const).map((field) => {
+            {pendingPayload && (['full_name', 'phone', 'institution', 'conference', 'zone', 'branch'] as const).map((field) => {
+                const nb: any = hierData.branches.find(x => x.id === pendingPayload.branch_id);
+                const nz: any = nb ? hierData.zones.find(x => x.id === nb.zone_id) : null;
+                const nc: any = nz ? hierData.conferences.find(x => x.id === nz.conference_id) : null;
                 const oldVal: string | null = field === 'full_name'
                   ? myMembership?.full_name ?? null
-                  : field === 'email'
-                  ? myMembership?.email ?? null
                   : field === 'phone'
                   ? myMembership?.phone ?? null
-                  : myMembership?.institution ?? null;
-                const newVal = pendingPayload[field];
+                  : field === 'institution'
+                  ? myMembership?.institution ?? null
+                  : field === 'conference'
+                  ? myMembership?.conference_name ?? null
+                  : field === 'zone'
+                  ? myMembership?.zone_name ?? null
+                  : myMembership?.branch_name ?? null;
+                const newVal: string | null = field === 'conference'
+                  ? nc?.name ?? null
+                  : field === 'zone'
+                  ? nz?.name ?? null
+                  : field === 'branch'
+                  ? nb?.name ?? null
+                  : pendingPayload[field as 'full_name' | 'phone' | 'institution'];
                 if ((oldVal || '') === (newVal || '')) return null;
                 return (
                   <div key={field} className="flex items-start justify-between gap-3">
