@@ -468,15 +468,28 @@ export default function Dashboard() {
           </DialogHeader>
           <p className="text-sm text-muted-foreground">Una uhakika unataka kuhifadhi mabadiliko yafuatayo?</p>
           <div className="space-y-2 text-sm">
-            {pendingPayload && (['full_name', 'email', 'phone', 'institution'] as const).map((field) => {
+            {pendingPayload && (['full_name', 'phone', 'institution', 'conference', 'zone', 'branch'] as const).map((field) => {
+                const nb: any = hierData.branches.find(x => x.id === pendingPayload.branch_id);
+                const nz: any = nb ? hierData.zones.find(x => x.id === nb.zone_id) : null;
+                const nc: any = nz ? hierData.conferences.find(x => x.id === nz.conference_id) : null;
                 const oldVal: string | null = field === 'full_name'
                   ? myMembership?.full_name ?? null
-                  : field === 'email'
-                  ? myMembership?.email ?? null
                   : field === 'phone'
                   ? myMembership?.phone ?? null
-                  : myMembership?.institution ?? null;
-                const newVal = pendingPayload[field];
+                  : field === 'institution'
+                  ? myMembership?.institution ?? null
+                  : field === 'conference'
+                  ? myMembership?.conference_name ?? null
+                  : field === 'zone'
+                  ? myMembership?.zone_name ?? null
+                  : myMembership?.branch_name ?? null;
+                const newVal: string | null = field === 'conference'
+                  ? nc?.name ?? null
+                  : field === 'zone'
+                  ? nz?.name ?? null
+                  : field === 'branch'
+                  ? nb?.name ?? null
+                  : pendingPayload[field as 'full_name' | 'phone' | 'institution'];
                 if ((oldVal || '') === (newVal || '')) return null;
                 return (
                   <div key={field} className="flex items-start justify-between gap-3">
