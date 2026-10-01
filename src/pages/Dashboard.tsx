@@ -55,7 +55,9 @@ export default function Dashboard() {
   const [avatar, setAvatar] = useState<string | null>(user ? getStoredAvatar(user.id) : null);
   
   const [editOpen, setEditOpen] = useState(false);
-  const [editForm, setEditForm] = useState({ full_name: '', phone: '', institution: '' });
+  const [editForm, setEditForm] = useState({ full_name: '', email: '', phone: '', institution: '' });
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingPayload, setPendingPayload] = useState<{ full_name: string; email: string | null; phone: string | null; institution: string | null } | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -304,6 +306,7 @@ export default function Dashboard() {
                 onClick={() => {
                   setEditForm({
                     full_name: myMembership.full_name || '',
+                    email: myMembership.email || '',
                     phone: myMembership.phone || '',
                     institution: myMembership.institution || '',
                   });
@@ -333,31 +336,26 @@ export default function Dashboard() {
             <DialogTitle>Edit My Details</DialogTitle>
           </DialogHeader>
           <form
-            onSubmit={async (e) => {
+            onSubmit={(e) => {
               e.preventDefault();
-              if (!user || !myMembership?.id) return;
-              setSavingProfile(true);
-              const payload = {
+              setPendingPayload({
                 full_name: editForm.full_name.trim(),
+                email: editForm.email.trim() || null,
                 phone: editForm.phone.trim() || null,
                 institution: editForm.institution.trim() || null,
-              };
-              const { error: mErr } = await supabase.from('members').update(payload).eq('id', myMembership.id);
-              const { error: pErr } = await supabase.from('profiles').update(payload).eq('user_id', user.id);
-              setSavingProfile(false);
-              if (mErr || pErr) {
-                  toast({ title: 'Error', description: (mErr || pErr)?.message, variant: 'destructive' });
-                return;
-              }
-                toast({ title: 'Details saved' });
+              });
               setEditOpen(false);
-              setMyMembership(prev => prev ? { ...prev, ...payload } : prev);
+              setConfirmOpen(true);
             }}
             className="space-y-4"
           >
             <div className="space-y-2">
               <Label>Full Name</Label>
-              <Input value={editForm.full_name} onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))} required />
+              <Input value={editForm.full_name} maxLength={100} onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))} required />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input type="email" value={editForm.email} maxLength={255} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} />
             </div>
             <div className="space-y-2">
               <Label>Phone Number</Label>
