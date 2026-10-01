@@ -45,6 +45,13 @@ const ALL_MODULES: Array<{ to: string; title: string; desc: string; Icon: Lucide
   { to: '/hierarchy',  title: 'Hierarchy',  desc: 'Union, Conferences, Zones na Branches.', Icon: Network, accent: 'from-bronze to-gold', unionOnly: true },
 ];
 
+const FIELD_LABELS: Record<string, string> = {
+  full_name: 'Name',
+  email: 'Email',
+  phone: 'Phone',
+  institution: 'Institution',
+};
+
 export default function Dashboard() {
   const { user, profile, userRoles, highestLevel, isUnionLeader, isSuperAdmin, signOut } = useAuth();
   const navigate = useNavigate();
@@ -55,7 +62,9 @@ export default function Dashboard() {
   const [avatar, setAvatar] = useState<string | null>(user ? getStoredAvatar(user.id) : null);
   
   const [editOpen, setEditOpen] = useState(false);
-  const [editForm, setEditForm] = useState({ full_name: '', phone: '', institution: '' });
+  const [editForm, setEditForm] = useState({ full_name: '', email: '', phone: '', institution: '' });
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [pendingPayload, setPendingPayload] = useState<{ full_name: string; email: string | null; phone: string | null; institution: string | null } | null>(null);
   const [savingProfile, setSavingProfile] = useState(false);
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -149,6 +158,22 @@ export default function Dashboard() {
 
   const handleModuleTap = (module: { title: string; to: string }) => {
     navigate(module.to);
+  };
+
+  const confirmSave = async () => {
+    if (!user || !myMembership?.id || !pendingPayload) return;
+    setSavingProfile(true);
+    const { error: mErr } = await supabase.from('members').update(pendingPayload).eq('id', myMembership.id);
+    const { error: pErr } = await supabase.from('profiles').update(pendingPayload).eq('user_id', user.id);
+    setSavingProfile(false);
+    if (mErr || pErr) {
+      toast({ title: 'Error', description: (mErr || pErr)?.message, variant: 'destructive' });
+      return;
+    }
+    toast({ title: 'Details saved' });
+    setConfirmOpen(false);
+    setMyMembership(prev => prev ? { ...prev, ...pendingPayload } : prev);
+    setPendingPayload(null);
   };
 
 
@@ -304,6 +329,7 @@ export default function Dashboard() {
                 onClick={() => {
                   setEditForm({
                     full_name: myMembership.full_name || '',
+                    email: myMembership.email || '',
                     phone: myMembership.phone || '',
                     institution: myMembership.institution || '',
                   });
@@ -317,6 +343,7 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
             <div><span className="text-white/70">Name:</span> <span className="font-medium text-white">{toUpperName(myMembership.full_name)}</span></div>
             <div><span className="text-white/70">Status:</span> <span className="font-medium text-white">{myMembership.is_active ? 'Active' : 'Inactive'}</span></div>
+            {myMembership.email && <div><span className="text-white/70">Email:</span> <span className="text-white break-all">{myMembership.email}</span></div>}
             {myMembership.phone && <div><span className="text-white/70">Phone:</span> <span className="text-white">{myMembership.phone}</span></div>}
             {myMembership.institution && <div><span className="text-white/70">Institution:</span> <span className="text-white">{myMembership.institution}</span></div>}
             {myMembership.union_name && <div><span className="text-white/70">Union:</span> <span className="text-white">{myMembership.union_name}</span></div>}
@@ -333,39 +360,34 @@ export default function Dashboard() {
             <DialogTitle>Edit My Details</DialogTitle>
           </DialogHeader>
           <form
-            onSubmit={async (e) => {
+            onSubmit={(e) => {
               e.preventDefault();
-              if (!user || !myMembership?.id) return;
-              setSavingProfile(true);
-              const payload = {
+              setPendingPayload({
                 full_name: editForm.full_name.trim(),
+                email: editForm.email.trim() || null,
                 phone: editForm.phone.trim() || null,
                 institution: editForm.institution.trim() || null,
-              };
-              const { error: mErr } = await supabase.from('members').update(payload).eq('id', myMembership.id);
-              const { error: pErr } = await supabase.from('profiles').update(payload).eq('user_id', user.id);
-              setSavingProfile(false);
-              if (mErr || pErr) {
-                  toast({ title: 'Error', description: (mErr || pErr)?.message, variant: 'destructive' });
-                return;
-              }
-                toast({ title: 'Details saved' });
+              });
               setEditOpen(false);
-              setMyMembership(prev => prev ? { ...prev, ...payload } : prev);
+              setConfirmOpen(true);
             }}
             className="space-y-4"
           >
             <div className="space-y-2">
               <Label>Full Name</Label>
-              <Input value={editForm.full_name} onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))} required />
+              <Input value={editForm.full_name} maxLength={100} onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))} required />
+            </div>
+            <div className="space-y-2">
+              <Label>Email</Label>
+              <Input type="email" value={editForm.email} maxLength={255} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} />
             </div>
             <div className="space-y-2">
               <Label>Phone Number</Label>
-              <Input value={editForm.phone} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} />
+              <Input value={editForm.phone} maxLength={20} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} />
             </div>
             <div className="space-y-2">
               <Label>Institution / College</Label>
-              <Input value={editForm.institution} onChange={e => setEditForm(f => ({ ...f, institution: e.target.value }))} />
+              <Input value={editForm.institution} maxLength={100} onChange={e => setEditForm(f => ({ ...f, institution: e.target.value }))} />
             </div>
             <p className="text-xs text-muted-foreground">Note: Branch cannot be changed here. Contact your branch leader if you have moved.</p>
             <div className="flex gap-2 justify-end">
@@ -373,6 +395,41 @@ export default function Dashboard() {
               <Button type="submit" disabled={savingProfile}>{savingProfile ? 'Saving...' : 'Save'}</Button>
             </div>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirm Your Changes</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">Una uhakika unataka kuhifadhi mabadiliko yafuatayo?</p>
+          <div className="space-y-2 text-sm">
+            {pendingPayload && (['full_name', 'email', 'phone', 'institution'] as const).map((field) => {
+                const oldVal: string | null = field === 'full_name'
+                  ? myMembership?.full_name ?? null
+                  : field === 'email'
+                  ? myMembership?.email ?? null
+                  : field === 'phone'
+                  ? myMembership?.phone ?? null
+                  : myMembership?.institution ?? null;
+                const newVal = pendingPayload[field];
+                if ((oldVal || '') === (newVal || '')) return null;
+                return (
+                  <div key={field} className="flex items-start justify-between gap-3">
+                    <span className="text-white/70 shrink-0">{FIELD_LABELS[field]}:</span>
+                    <span className="text-right min-w-0">
+                      <span className="text-white/50 line-through mr-2 break-all">{oldVal || '—'}</span>
+                      <span className="text-white font-medium break-all">{newVal || '—'}</span>
+                    </span>
+                  </div>
+                );
+              })}
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button type="button" variant="outline" onClick={() => { setConfirmOpen(false); setEditOpen(true); }}>Cancel</Button>
+            <Button type="button" onClick={confirmSave} disabled={savingProfile}>{savingProfile ? 'Saving...' : 'Yes, Save'}</Button>
+          </div>
         </DialogContent>
       </Dialog>
 
