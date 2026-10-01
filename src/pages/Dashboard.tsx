@@ -105,20 +105,26 @@ export default function Dashboard() {
         setMyMembership({
           id: (m as any).id,
           full_name: (m as any).full_name,
-          email: (m as any).email,
           phone: (m as any).phone,
           institution: (m as any).institution,
           is_active: (m as any).is_active,
         });
 
-        const [bRes, allZ, allC, allU] = await Promise.all([
+        const [bRes, allZ, allC, allU, allB] = await Promise.all([
           supabase.from('branches').select('name, zone_id').eq('id', (m as any).branch_id).maybeSingle(),
           supabase.from('zones').select('id, name, conference_id'),
           supabase.from('conferences').select('id, name, union_id'),
           supabase.from('unions').select('id, name'),
+          supabase.from('branches').select('id, name, zone_id'),
         ]);
 
         if (cancelled) return;
+
+        setHierData({
+          conferences: (allC.data || []) as any[],
+          zones: (allZ.data || []) as any[],
+          branches: (allB.data || []) as any[],
+        });
 
         const b: any = bRes.data;
         const z: any = b ? (allZ.data || []).find((x: any) => x.id === b.zone_id) : null;
@@ -177,7 +183,18 @@ export default function Dashboard() {
     }
     toast({ title: 'Details saved' });
     setConfirmOpen(false);
-    setMyMembership(prev => prev ? { ...prev, ...pendingPayload } : prev);
+    const nb: any = hierData.branches.find(x => x.id === pendingPayload.branch_id);
+    const nz: any = nb ? hierData.zones.find(x => x.id === nb.zone_id) : null;
+    const nc: any = nz ? hierData.conferences.find(x => x.id === nz.conference_id) : null;
+    setMyMembership(prev => prev ? {
+      ...prev,
+      full_name: pendingPayload.full_name,
+      phone: pendingPayload.phone,
+      institution: pendingPayload.institution,
+      branch_name: nb?.name,
+      zone_name: nz?.name,
+      conference_name: nc?.name,
+    } : prev);
     setPendingPayload(null);
   };
 
@@ -334,10 +351,15 @@ export default function Dashboard() {
                 onClick={() => {
                   setEditForm({
                     full_name: myMembership.full_name || '',
-                    email: myMembership.email || '',
                     phone: myMembership.phone || '',
                     institution: myMembership.institution || '',
                   });
+                  const cb: any = hierData.branches.find(x => x.name === myMembership.branch_name);
+                  const cz: any = cb ? hierData.zones.find(x => x.id === cb.zone_id) : null;
+                  const cc: any = cz ? hierData.conferences.find(x => x.id === cz.conference_id) : null;
+                  setSelConferenceId(cc?.id || '');
+                  setSelZoneId(cz?.id || '');
+                  setSelBranchId(cb?.id || '');
                   setEditOpen(true);
                 }}
               >
