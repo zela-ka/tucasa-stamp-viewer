@@ -370,7 +370,6 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
             <div><span className="text-white/70">Name:</span> <span className="font-medium text-white">{toUpperName(myMembership.full_name)}</span></div>
             <div><span className="text-white/70">Status:</span> <span className="font-medium text-white">{myMembership.is_active ? 'Active' : 'Inactive'}</span></div>
-            {myMembership.email && <div><span className="text-white/70">Email:</span> <span className="text-white break-all">{myMembership.email}</span></div>}
             {myMembership.phone && <div><span className="text-white/70">Phone:</span> <span className="text-white">{myMembership.phone}</span></div>}
             {myMembership.institution && <div><span className="text-white/70">Institution:</span> <span className="text-white">{myMembership.institution}</span></div>}
             {myMembership.union_name && <div><span className="text-white/70">Union:</span> <span className="text-white">{myMembership.union_name}</span></div>}
@@ -389,11 +388,15 @@ export default function Dashboard() {
           <form
             onSubmit={(e) => {
               e.preventDefault();
+              if (!selBranchId) {
+                toast({ title: 'Chagua Branch', description: 'Tafadhali chagua Conference, Zone na Branch.', variant: 'destructive' });
+                return;
+              }
               setPendingPayload({
                 full_name: editForm.full_name.trim(),
-                email: editForm.email.trim() || null,
                 phone: editForm.phone.trim() || null,
                 institution: editForm.institution.trim() || null,
+                branch_id: selBranchId,
               });
               setEditOpen(false);
               setConfirmOpen(true);
@@ -405,10 +408,6 @@ export default function Dashboard() {
               <Input value={editForm.full_name} maxLength={100} onChange={e => setEditForm(f => ({ ...f, full_name: e.target.value }))} required />
             </div>
             <div className="space-y-2">
-              <Label>Email</Label>
-              <Input type="email" value={editForm.email} maxLength={255} onChange={e => setEditForm(f => ({ ...f, email: e.target.value }))} />
-            </div>
-            <div className="space-y-2">
               <Label>Phone Number</Label>
               <Input value={editForm.phone} maxLength={20} onChange={e => setEditForm(f => ({ ...f, phone: e.target.value }))} />
             </div>
@@ -416,7 +415,44 @@ export default function Dashboard() {
               <Label>Institution / College</Label>
               <Input value={editForm.institution} maxLength={100} onChange={e => setEditForm(f => ({ ...f, institution: e.target.value }))} />
             </div>
-            <p className="text-xs text-muted-foreground">Note: Branch cannot be changed here. Contact your branch leader if you have moved.</p>
+            <div className="space-y-2">
+              <Label>Conference</Label>
+              <select
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={selConferenceId}
+                onChange={e => { setSelConferenceId(e.target.value); setSelZoneId(''); setSelBranchId(''); }}
+                required
+              >
+                <option value="">— Chagua Conference —</option>
+                {hierData.conferences.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Zone</Label>
+              <select
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={selZoneId}
+                onChange={e => { setSelZoneId(e.target.value); setSelBranchId(''); }}
+                required
+                disabled={!selConferenceId}
+              >
+                <option value="">— Chagua Zone —</option>
+                {hierData.zones.filter((z: any) => z.conference_id === selConferenceId).map((z: any) => <option key={z.id} value={z.id}>{z.name}</option>)}
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label>Branch</Label>
+              <select
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                value={selBranchId}
+                onChange={e => setSelBranchId(e.target.value)}
+                required
+                disabled={!selZoneId}
+              >
+                <option value="">— Chagua Branch —</option>
+                {hierData.branches.filter((b: any) => b.zone_id === selZoneId).map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
+              </select>
+            </div>
             <div className="flex gap-2 justify-end">
               <Button type="button" variant="outline" onClick={() => setEditOpen(false)}>Cancel</Button>
               <Button type="submit" disabled={savingProfile}>{savingProfile ? 'Saving...' : 'Save'}</Button>
