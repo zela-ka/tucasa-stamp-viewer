@@ -15,7 +15,7 @@ import { toUpperName } from '@/lib/utils';
 import { GlassPanel, GlassOverlay, GlassButton } from '@/components/glass';
 import {
   Users, ShieldCheck, FileText, Network, UserCircle,
-  Camera, Shield, Pencil,
+  Camera, Shield, Pencil, Mountain,
   type LucideIcon,
 } from 'lucide-react';
 import {
@@ -37,11 +37,12 @@ interface MyMembership {
   union_name?: string;
 }
 
-const ALL_MODULES: Array<{ to: string; title: string; desc: string; Icon: LucideIcon; accent: string; unionOnly?: boolean }> = [
+const ALL_MODULES: Array<{ to: string; title: string; desc: string; Icon: LucideIcon; accent: string; unionOnly?: boolean; external?: boolean }> = [
   { to: '/members',    title: 'Members',    desc: 'Tazama waumini kwa hierarkia yako.', Icon: Users,       accent: 'from-church-blue to-church-blue-light' },
   { to: '/leadership', title: 'Leadership', desc: 'Viongozi wa ngazi yako.',            Icon: ShieldCheck, accent: 'from-gold to-gold-light' },
   { to: '/reports',    title: 'Reports',    desc: 'Ripoti za ngazi yako.',              Icon: FileText,    accent: 'from-emerald to-emerald' },
   { to: '/hierarchy',  title: 'Hierarchy',  desc: 'Union, Conferences, Zones na Branches.', Icon: Network, accent: 'from-bronze to-gold', unionOnly: true },
+  { to: 'https://screenshot-to-spark-9018.lovable.app', title: 'Summit', desc: 'Fungua mfumo wa Summit.', Icon: Mountain, accent: 'from-church-blue to-gold', external: true },
 ];
 
 const FIELD_LABELS: Record<string, string> = {
@@ -167,7 +168,11 @@ export default function Dashboard() {
     reader.readAsDataURL(file);
   };
 
-  const handleModuleTap = (module: { title: string; to: string }) => {
+  const handleModuleTap = (module: { title: string; to: string; external?: boolean }) => {
+    if (module.external) {
+      window.open(module.to, '_blank', 'noopener,noreferrer');
+      return;
+    }
     navigate(module.to);
   };
 
