@@ -67,7 +67,9 @@ Deno.serve(async (req) => {
 
     const username = Deno.env.get('NEXTSMS_USERNAME')!;
     const password = Deno.env.get('NEXTSMS_PASSWORD')!;
-    const senderId = Deno.env.get('NEXTSMS_SENDER_ID')!;
+    // Halotel numbers (255 61x / 62x) use their own approved Sender ID.
+    const isHalotel = /^255(61|62)/.test(normalized);
+    const senderId = isHalotel ? 'TUCASAADCOM' : Deno.env.get('NEXTSMS_SENDER_ID')!;
     const auth = btoa(`${username}:${password}`);
 
     const smsRes = await fetch('https://messaging-service.co.tz/api/sms/v1/text/single', {
