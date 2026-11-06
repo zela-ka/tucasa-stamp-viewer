@@ -247,7 +247,7 @@ export async function exportPDF(
     head: [headers],
     body: rows.map(r => headers.map(h => (r[h] == null ? '' : String(r[h])))),
     startY: tableStartY,
-    margin: { left: leftMargin, right: rightMargin, top: 44, bottom: 18 },
+    margin: { left: leftMargin, right: rightMargin, top: 52, bottom: 22 },
     styles: { fontSize: 8, cellPadding: 2, textColor: [40, 40, 40] },
     headStyles: { fillColor: BRAND_PURPLE, textColor: [255, 255, 255], fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [248, 244, 252] },
@@ -297,26 +297,39 @@ function renderLeaderHierarchy(
 ): number {
   let y = startY;
 
-  for (const node of nodes) {
-    const pageH = doc.internal.pageSize.getHeight();
-    if (y > pageH - 40) {
+  const pageH = doc.internal.pageSize.getHeight();
+  const bottomLimit = pageH - 22; // keep clear of the footer
+  const topY = 52; // first usable line under the letterhead
+  const ensureSpace = (needed: number) => {
+    if (y + needed > bottomLimit) {
       doc.addPage();
       drawTucasaHeader(doc, logoBase64, sdaLogoBase64);
-      y = 50;
+      y = topY;
     }
+  };
+
+  for (const node of nodes) {
+    const hasMembers = 'members' in node && node.members.length > 0;
+    const hasChildren = 'children' in node && node.children.length > 0;
+    // Keep a heading together with the start of its content (no orphan titles at page bottom)
+    ensureSpace(hasMembers ? 32 : hasChildren ? 22 : 14);
 
     doc.setTextColor(...BRAND_PURPLE_DARK);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text(getHeadingText(node), leftMargin + depth * 4, y);
-    y += 4;
+    doc.setFontSize(depth === 0 ? 11 : 10);
+    const indent = leftMargin + depth * 4;
+    doc.text(getHeadingText(node), indent, y);
+    doc.setDrawColor(...BRAND_LINE);
+    doc.setLineWidth(0.2);
+    doc.line(indent, y + 1.5, doc.internal.pageSize.getWidth() - rightMargin, y + 1.5);
+    y += 5;
 
-    if ('members' in node && node.members.length > 0) {
+    if (hasMembers) {
       const head = showBranchCol
         ? [['#', 'Full Name', 'Branch', 'Phone']]
         : [['#', 'Full Name', 'Phone', 'Institution']];
 
-      const body = node.members.map((member, index) =>
+      const body = (node as any).members.map((member: any, index: number) =>
         showBranchCol
           ? [index + 1, member.name, member.branch || '', member.phone || '']
           : [index + 1, member.name, member.phone || '', member.institution || ''],
@@ -325,21 +338,31 @@ function renderLeaderHierarchy(
       autoTable(doc, {
         head,
         body,
-        startY: y + 2,
-        margin: { left: leftMargin + depth * 4, right: rightMargin, top: 44, bottom: 18 },
+        startY: y + 1,
+        margin: { left: indent, right: rightMargin, top: topY, bottom: 22 },
         styles: { fontSize: 8, cellPadding: 2, textColor: [40, 40, 40] },
         headStyles: { fillColor: BRAND_PURPLE, textColor: [255, 255, 255], fontStyle: 'bold' },
         alternateRowStyles: { fillColor: [248, 244, 252] },
         columnStyles: { 0: { halign: 'right', cellWidth: 10 } },
+        showHead: 'everyPage',
         didDrawPage: () => {
           drawTucasaHeader(doc, logoBase64, sdaLogoBase64);
         },
       });
-      y = ((doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 6);
+      y = ((doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10);
+    } else if (!hasChildren) {
+      doc.setFont('helvetica', 'italic');
+      doc.setFontSize(8.5);
+      doc.setTextColor(120, 120, 120);
+      doc.text('No members registered yet.', indent + 2, y + 2);
+      y += 10;
+    } else {
+      y += 3;
     }
 
-    if ('children' in node && node.children.length > 0) {
-      y = renderLeaderHierarchy(doc, node.children, y, leftMargin, rightMargin, showBranchCol, logoBase64, sdaLogoBase64, depth + 1);
+    if (hasChildren) {
+      y = renderLeaderHierarchy(doc, (node as any).children, y, leftMargin, rightMargin, showBranchCol, logoBase64, sdaLogoBase64, depth + 1);
+      y += 4;
     }
   }
 
@@ -388,7 +411,7 @@ export async function exportLeaderReportPDF(
     head: [['Summary', 'Count']],
     body: countRows,
     startY: headerBottom + 15,
-    margin: { left: leftMargin, right: rightMargin, top: 44, bottom: 18 },
+    margin: { left: leftMargin, right: rightMargin, top: 52, bottom: 22 },
     styles: { fontSize: 9, cellPadding: 2.5, textColor: [40, 40, 40] },
     headStyles: { fillColor: BRAND_PURPLE, textColor: [255, 255, 255], fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [248, 244, 252] },
@@ -548,7 +571,7 @@ export async function exportLeaderExportPDF(data: LeaderExportData, filename: st
     head: [['Summary', 'Count']],
     body: summaryRows,
     startY: headerBottom + 15,
-    margin: { left: leftMargin, right: rightMargin, top: 44, bottom: 18 },
+    margin: { left: leftMargin, right: rightMargin, top: 52, bottom: 22 },
     styles: { fontSize: 9, cellPadding: 2.5, textColor: [40, 40, 40] },
     headStyles: { fillColor: BRAND_PURPLE, textColor: [255, 255, 255], fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [248, 244, 252] },
@@ -576,7 +599,7 @@ export async function exportLeaderExportPDF(data: LeaderExportData, filename: st
     head: [['Full Name', 'Leadership Position', 'Scope Level', 'Union', 'Conference', 'Zone', 'Branch', 'Phone', 'Email', 'Gender', 'Status']],
     body: detailRows,
     startY: (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8,
-    margin: { left: leftMargin, right: rightMargin, top: 44, bottom: 18 },
+    margin: { left: leftMargin, right: rightMargin, top: 52, bottom: 22 },
     styles: { fontSize: 7.5, cellPadding: 1.8, textColor: [40, 40, 40] },
     headStyles: { fillColor: BRAND_PURPLE, textColor: [255, 255, 255], fontStyle: 'bold' },
     alternateRowStyles: { fillColor: [248, 244, 252] },
